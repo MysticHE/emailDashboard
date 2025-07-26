@@ -210,7 +210,15 @@ class SupportPortalApp {
             ).length,
             
             // Average response time for all cases (not just today)
-            team_avg_response_time: this.calculateAverageResponseTime(cases)
+            team_avg_response_time: (() => {
+    const allResponseTimes = cases
+        .filter(c => c.response_time_minutes && c.response_time_minutes > 0)
+        .map(c => c.response_time_minutes);
+    
+    return allResponseTimes.length > 0 
+        ? Math.round(allResponseTimes.reduce((sum, time) => sum + time, 0) / allResponseTimes.length)
+        : 0;
+})()
         };
         
         console.log('📊 Team metrics calculated:', metrics);

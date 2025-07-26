@@ -5,8 +5,10 @@
   "main": "index.html",
   "scripts": {
     "build": "node build.js",
+    "build:debug": "DEBUG_MODE=true node build.js",
     "start": "node build.js && python -m http.server 8000",
-    "dev": "python -m http.server 8000"
+    "dev": "python -m http.server 8000",
+    "test:config": "node -e \"require('./build.js'); console.log('Config test completed');\""
   },
   "repository": {
     "type": "git",

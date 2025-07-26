@@ -1,0 +1,31 @@
+{
+  "name": "employee-support-portal",
+  "version": "1.0.0",
+  "description": "Real-time employee support portal with n8n automation integration",
+  "main": "index.html",
+  "scripts": {
+    "build": "node build.js",
+    "start": "node build.js && python -m http.server 8000",
+    "dev": "python -m http.server 8000"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/employee-support-portal.git"
+  },
+  "keywords": [
+    "support",
+    "portal",
+    "n8n",
+    "supabase",
+    "automation",
+    "email"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "node": ">=18.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

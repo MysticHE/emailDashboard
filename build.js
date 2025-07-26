@@ -46,7 +46,7 @@ window.CONFIG = {
   REFRESH_INTERVAL: ${config.REFRESH_INTERVAL},
   DEBUG_MODE: ${config.DEBUG_MODE},
   
-  // API Configuration
+  // API Configuration (auto-generated from SUPABASE_URL)
   API_BASE_URL: '${config.SUPABASE_URL}/rest/v1',
   REALTIME_URL: '${config.SUPABASE_URL.replace('https://', 'wss://')}/realtime/v1',
   

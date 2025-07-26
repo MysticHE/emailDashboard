@@ -23,7 +23,7 @@ class SupportPortalApp {
             this.setupRealTimeUpdates();
             this.setupAutoRefresh();
             this.setupEventListeners();
-            this.showSection('dashboard');
+            showSection('dashboard'); // Call global function, not class method
             this.hideLoading();
             
             if (window.CONFIG.DEBUG_MODE === 'true') {
@@ -414,38 +414,54 @@ window.addEventListener('beforeunload', () => {
 
 // Global functions for navigation
 function showSection(sectionName) {
-    // Hide all sections
-    document.querySelectorAll('.section').forEach(section => {
-        section.classList.add('hidden');
-    });
-    
-    // Show selected section
-    document.getElementById(`${sectionName}-section`).classList.remove('hidden');
-    
-    // Update navigation
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.className = 'nav-btn text-gray-500 hover:text-gray-700 py-4 px-1 text-sm font-medium';
-    });
-    
-    // Find and highlight active nav button
-    const activeBtn = Array.from(document.querySelectorAll('.nav-btn'))
-        .find(btn => btn.onclick && btn.onclick.toString().includes(sectionName));
-    
-    if (activeBtn) {
-        activeBtn.className = 'nav-btn border-blue-500 text-blue-600 border-b-2 py-4 px-1 text-sm font-medium';
-    }
-    
-    // Load section-specific data
-    switch(sectionName) {
-        case 'cases':
-            loadCasesSection();
-            break;
-        case 'analytics':
-            loadAnalyticsSection();
-            break;
-        case 'agents':
-            loadAgentsSection();
-            break;
+    try {
+        // Hide all sections
+        document.querySelectorAll('.section').forEach(section => {
+            section.classList.add('hidden');
+        });
+        
+        // Show selected section
+        const targetSection = document.getElementById(`${sectionName}-section`);
+        if (targetSection) {
+            targetSection.classList.remove('hidden');
+        } else {
+            console.warn(`Section ${sectionName}-section not found`);
+            return;
+        }
+        
+        // Update navigation
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.className = 'nav-btn text-gray-500 hover:text-gray-700 py-4 px-1 text-sm font-medium';
+        });
+        
+        // Find and highlight active nav button
+        const activeBtn = Array.from(document.querySelectorAll('.nav-btn'))
+            .find(btn => btn.onclick && btn.onclick.toString().includes(sectionName));
+        
+        if (activeBtn) {
+            activeBtn.className = 'nav-btn border-blue-500 text-blue-600 border-b-2 py-4 px-1 text-sm font-medium';
+        }
+        
+        // Load section-specific data
+        switch(sectionName) {
+            case 'cases':
+                if (typeof loadCasesSection === 'function') {
+                    loadCasesSection();
+                }
+                break;
+            case 'analytics':
+                if (typeof loadAnalyticsSection === 'function') {
+                    loadAnalyticsSection();
+                }
+                break;
+            case 'agents':
+                if (typeof loadAgentsSection === 'function') {
+                    loadAgentsSection();
+                }
+                break;
+        }
+    } catch (error) {
+        console.error('Error in showSection:', error);
     }
 }
 

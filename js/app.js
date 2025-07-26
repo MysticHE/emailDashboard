@@ -170,50 +170,67 @@ class SupportPortalApp {
     }
 
     async calculateTeamOverviewManually() {
-        try {
-            const today = new Date().toISOString().split('T')[0];
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        
+        const { data: cases, error } = await this.supabase
+            .from('cases')
+            .select('*');
             
-            const { data: cases, error } = await this.supabase
-                .from('cases')
-                .select('*');
+        if (error) throw error;
+        
+        const metrics = {
+            // Cases created today
+            total_cases_today: cases.filter(c => 
+                c.created_at.startsWith(today)
+            ).length,
+            
+            // FIXED: Count both resolved AND closed cases for "resolved today"
+            total_resolved_today: cases.filter(c => {
+                // Check if case was resolved or closed today
+                const resolvedToday = c.status === 'resolved' && c.resolved_at && c.resolved_at.startsWith(today);
+                const closedToday = c.status === 'closed' && c.resolved_at && c.resolved_at.startsWith(today);
                 
-            if (error) throw error;
+                return resolvedToday || closedToday;
+            }).length,
             
-            const metrics = {
-                total_cases_today: cases.filter(c => 
-                    c.created_at.startsWith(today)
-                ).length,
-                total_resolved_today: cases.filter(c => 
-                    c.status === 'resolved' && c.resolved_at && c.resolved_at.startsWith(today)
-                ).length,
-                total_pending: cases.filter(c => 
-                    ['new', 'assigned', 'in_progress', 'pending_customer'].includes(c.status)
-                ).length,
-                vip_pending: cases.filter(c => 
-                    c.priority === 'vip' && !['resolved', 'closed'].includes(c.status)
-                ).length,
-                urgent_pending: cases.filter(c => 
-                    c.priority === 'urgent' && !['resolved', 'closed'].includes(c.status)
-                ).length,
-                team_avg_response_time: this.calculateAverageResponseTime(cases)
-            };
+            // FIXED: Pending should exclude both resolved AND closed
+            total_pending: cases.filter(c => 
+                ['new', 'assigned', 'in_progress', 'pending_customer'].includes(c.status)
+            ).length,
             
-            this.updateTeamMetrics(metrics);
-            this.checkPriorityAlerts(metrics);
+            // FIXED: VIP pending should exclude resolved AND closed
+            vip_pending: cases.filter(c => 
+                c.priority === 'vip' && !['resolved', 'closed'].includes(c.status)
+            ).length,
             
-        } catch (error) {
-            console.error('Error calculating team overview manually:', error);
-            // Set default values
-            this.updateTeamMetrics({
-                total_cases_today: 0,
-                total_resolved_today: 0,
-                total_pending: 0,
-                vip_pending: 0,
-                urgent_pending: 0,
-                team_avg_response_time: 0
-            });
-        }
+            // FIXED: Urgent pending should exclude resolved AND closed  
+            urgent_pending: cases.filter(c => 
+                c.priority === 'urgent' && !['resolved', 'closed'].includes(c.status)
+            ).length,
+            
+            // Average response time for all cases (not just today)
+            team_avg_response_time: this.calculateAverageResponseTime(cases)
+        };
+        
+        console.log('📊 Team metrics calculated:', metrics);
+        
+        this.updateTeamMetrics(metrics);
+        this.checkPriorityAlerts(metrics);
+        
+    } catch (error) {
+        console.error('Error calculating team overview manually:', error);
+        // Set default values
+        this.updateTeamMetrics({
+            total_cases_today: 0,
+            total_resolved_today: 0,
+            total_pending: 0,
+            vip_pending: 0,
+            urgent_pending: 0,
+            team_avg_response_time: 0
+        });
     }
+}
 
     calculateAverageResponseTime(cases) {
         const casesWithResponse = cases.filter(c => c.response_time_minutes);

@@ -836,15 +836,22 @@ function destroyAllCharts() {
         app.charts = {};
     }
     
-    // Also clear any orphaned Chart.js instances
-    if (window.Chart && window.Chart.instances) {
-        window.Chart.instances.forEach(instance => {
-            try {
-                instance.destroy();
-            } catch (error) {
-                console.warn('Error destroying Chart.js instance:', error);
-            }
-        });
+    // Also clear any orphaned Chart.js instances (if they exist)
+    try {
+        if (window.Chart && window.Chart.instances && Array.isArray(window.Chart.instances)) {
+            window.Chart.instances.forEach(instance => {
+                try {
+                    if (instance && typeof instance.destroy === 'function') {
+                        instance.destroy();
+                    }
+                } catch (error) {
+                    console.warn('Error destroying Chart.js instance:', error);
+                }
+            });
+        }
+    } catch (error) {
+        // Ignore Chart.js instances cleanup if not available
+        console.log('Chart.js instances cleanup not available (normal for some versions)');
     }
 }
 

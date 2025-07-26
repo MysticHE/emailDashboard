@@ -233,12 +233,15 @@ class SupportPortalApp {
 }
 
     calculateAverageResponseTime(cases) {
-        const casesWithResponse = cases.filter(c => c.response_time_minutes);
-        if (casesWithResponse.length === 0) return 0;
-        
-        const total = casesWithResponse.reduce((sum, c) => sum + c.response_time_minutes, 0);
-        return Math.round(total / casesWithResponse.length);
-    }
+    const casesWithResponse = cases.filter(c => 
+        c.created_at && c.first_response_at && c.response_time_minutes && c.response_time_minutes > 0
+    );
+    
+    if (casesWithResponse.length === 0) return 0;
+    
+    const total = casesWithResponse.reduce((sum, c) => sum + c.response_time_minutes, 0);
+    return Math.round(total / casesWithResponse.length);
+}
 
     updateTeamMetrics(data) {
         document.getElementById('todayCases').textContent = data.total_cases_today || 0;

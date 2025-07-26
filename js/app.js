@@ -385,14 +385,41 @@ class SupportPortalApp {
 
     // Cleanup method
     destroy() {
+        console.log('🧹 Cleaning up app instance...');
+        
+        // Clear refresh interval
         if (this.refreshInterval) {
             clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
+        }
+        
+        // Destroy all charts
+        if (this.charts) {
+            Object.values(this.charts).forEach(chart => {
+                if (chart && chart.destroy) {
+                    try {
+                        chart.destroy();
+                    } catch (error) {
+                        console.warn('Error destroying chart:', error);
+                    }
+                }
+            });
+            this.charts = {};
         }
         
         // Unsubscribe from real-time updates
         if (this.supabase) {
-            this.supabase.removeAllChannels();
+            try {
+                this.supabase.removeAllChannels();
+            } catch (error) {
+                console.warn('Error removing Supabase channels:', error);
+            }
         }
+        
+        // Reset loading state
+        this.isLoading = false;
+        
+        console.log('✅ App instance cleaned up');
     }
 }
 
@@ -401,6 +428,13 @@ let app = null;
 
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+    // Prevent multiple instances
+    if (app !== null) {
+        console.warn('⚠️ App already initialized, skipping...');
+        return;
+    }
+    
+    console.log('🚀 Initializing Support Portal App...');
     app = new SupportPortalApp();
     app.init();
 });
@@ -409,6 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('beforeunload', () => {
     if (app) {
         app.destroy();
+        app = null;
     }
 });
 
@@ -471,7 +506,20 @@ function refreshDashboard() {
     }
 }
 
-// Expose app globally for debugging
-if (window.CONFIG && window.CONFIG.DEBUG_MODE === 'true') {
-    window.app = app;
-}
+// Prevent multiple app instances in global scope
+window.createApp = function() {
+    if (app !== null) {
+        console.warn('⚠️ App already exists, destroying previous instance...');
+        app.destroy();
+    }
+    app = new SupportPortalApp();
+    return app;
+};
+
+// Expose app globally for debugging (only in debug mode)
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.CONFIG && window.CONFIG.DEBUG_MODE === 'true') {
+        window.app = app;
+        console.log('🔧 Debug mode: App exposed globally as window.app');
+    }
+});

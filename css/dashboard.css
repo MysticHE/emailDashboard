@@ -654,3 +654,50 @@ body {
     font-size: 0.75rem;
   }
 }
+
+/* ==========================================================================
+   Analytics Section - Prevent Infinite Growth
+   ========================================================================== */
+
+#analytics-section {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+#analytics-section .grid {
+    height: auto !important;
+    max-height: calc(100vh - 150px) !important;
+    overflow: visible !important;
+}
+
+#analytics-section .bg-white {
+    height: 420px !important;
+    max-height: 420px !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+#analytics-section canvas {
+    height: 300px !important;
+    max-height: 300px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    flex-shrink: 0 !important;
+}
+
+.chart-container {
+    position: relative !important;
+    height: 300px !important;
+    max-height: 300px !important;
+    overflow: hidden !important;
+    flex: 1 !important;
+}
+
+/* Prevent Chart.js from overriding height */
+#tatChart, #volumeChart, #priorityChart, #agentChart {
+    height: 300px !important;
+    max-height: 300px !important;
+}

@@ -55,10 +55,19 @@ SupportPortalApp.prototype.calculateAgentPerformanceManually = async function() 
         
         return agents.map(agent => {
             const agentCases = cases.filter(c => c.agent_id === agent.id);
-            const todayCases = agentCases.filter(c => c.resolved_at && c.resolved_at.startsWith(today));
+            
+            // FIXED: Count both resolved and closed cases for "resolved today"
+            const todayCases = agentCases.filter(c => {
+                const resolvedToday = (c.status === 'resolved' || c.status === 'closed') && 
+                                    c.resolved_at && c.resolved_at.startsWith(today);
+                return resolvedToday;
+            });
+            
+            // FIXED: Pending excludes both resolved and closed
             const pendingCases = agentCases.filter(c => 
                 ['new', 'assigned', 'in_progress', 'pending_customer'].includes(c.status)
             );
+            
             const unattendedCases = agentCases.filter(c => 
                 c.status === 'new' && 
                 new Date(c.created_at) > new Date(Date.now() - 2 * 60 * 60 * 1000)

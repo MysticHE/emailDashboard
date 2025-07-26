@@ -1,32 +1,67 @@
 /**
- * Analytics Functions
+ * Analytics Functions - FIXED VERSION
  * Handles analytics section with charts and reporting
+ * Fixed infinite loop issue and added proper guards
  */
 
+// Global flag to prevent multiple simultaneous loading
+let analyticsLoading = false;
+
 /**
- * Load analytics section
+ * Load analytics section - WITH GUARDS AGAINST INFINITE LOOPS
  */
 async function loadAnalyticsSection() {
+    // Prevent multiple simultaneous calls
+    if (analyticsLoading) {
+        console.log('Analytics already loading, skipping...');
+        return;
+    }
+    
+    analyticsLoading = true;
+    
     try {
-        await Promise.all([
-            createTATTrendsChart(),
-            createVolumeChart(),
-            createPriorityDistributionChart(),
-            createAgentPerformanceChart()
-        ]);
+        console.log('🔄 Loading analytics section...');
+        
+        // Clear any existing charts first
+        destroyAllCharts();
+        
+        // Load charts one by one with delays to prevent conflicts
+        await createTATTrendsChart();
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        await createVolumeChart();
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        await createPriorityDistributionChart();
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        await createAgentPerformanceChart();
+        
+        console.log('✅ Analytics section loaded successfully');
+        
     } catch (error) {
         console.error('Error loading analytics section:', error);
         showNotification('Failed to load analytics data', 'error');
+    } finally {
+        analyticsLoading = false;
     }
 }
 
 /**
- * Create TAT trends chart
+ * Create TAT trends chart - WITH GUARDS
  */
 async function createTATTrendsChart() {
     if (!app || !app.supabase) return;
+    
+    // Check if chart is already being created
+    if (app.charts.tatTrends && app.charts.tatTrends.data) {
+        console.log('TAT trends chart already exists, skipping...');
+        return;
+    }
 
     try {
+        console.log('Creating TAT trends chart...');
+        
         // Get last 30 days of data
         const endDate = new Date();
         const startDate = new Date(endDate);
@@ -91,13 +126,22 @@ async function createTATTrendsChart() {
             avgResolutionTimes.push(avgResolution);
         });
 
-        // Create chart
-        const ctx = document.getElementById('tatChart').getContext('2d');
+        // Get canvas and ensure it exists
+        const canvas = document.getElementById('tatChart');
+        if (!canvas) {
+            console.error('TAT chart canvas not found');
+            return;
+        }
         
+        const ctx = canvas.getContext('2d');
+        
+        // Destroy existing chart
         if (app.charts.tatTrends) {
             app.charts.tatTrends.destroy();
+            app.charts.tatTrends = null;
         }
 
+        // Create new chart
         app.charts.tatTrends = new Chart(ctx, {
             type: 'line',
             data: {
@@ -164,6 +208,8 @@ async function createTATTrendsChart() {
             }
         });
 
+        console.log('✅ TAT trends chart created');
+
     } catch (error) {
         console.error('Error creating TAT trends chart:', error);
         showChartError('tatChart', 'Failed to load TAT trends');
@@ -171,12 +217,20 @@ async function createTATTrendsChart() {
 }
 
 /**
- * Create case volume chart
+ * Create case volume chart - WITH GUARDS
  */
 async function createVolumeChart() {
     if (!app || !app.supabase) return;
+    
+    // Check if chart already exists
+    if (app.charts.volume && app.charts.volume.data) {
+        console.log('Volume chart already exists, skipping...');
+        return;
+    }
 
     try {
+        console.log('Creating volume chart...');
+        
         // Get last 30 days of data
         const endDate = new Date();
         const startDate = new Date(endDate);
@@ -233,11 +287,19 @@ async function createVolumeChart() {
             resolvedData.push(day.resolved);
         });
 
-        // Create chart
-        const ctx = document.getElementById('volumeChart').getContext('2d');
+        // Get canvas
+        const canvas = document.getElementById('volumeChart');
+        if (!canvas) {
+            console.error('Volume chart canvas not found');
+            return;
+        }
         
+        const ctx = canvas.getContext('2d');
+        
+        // Destroy existing chart
         if (app.charts.volume) {
             app.charts.volume.destroy();
+            app.charts.volume = null;
         }
 
         app.charts.volume = new Chart(ctx, {
@@ -289,6 +351,8 @@ async function createVolumeChart() {
             }
         });
 
+        console.log('✅ Volume chart created');
+
     } catch (error) {
         console.error('Error creating volume chart:', error);
         showChartError('volumeChart', 'Failed to load case volume data');
@@ -296,12 +360,20 @@ async function createVolumeChart() {
 }
 
 /**
- * Create priority distribution chart
+ * Create priority distribution chart - WITH GUARDS
  */
 async function createPriorityDistributionChart() {
     if (!app || !app.supabase) return;
+    
+    // Check if chart already exists
+    if (app.charts.priority && app.charts.priority.data) {
+        console.log('Priority chart already exists, skipping...');
+        return;
+    }
 
     try {
+        console.log('Creating priority distribution chart...');
+        
         const { data: cases, error } = await app.supabase
             .from('cases')
             .select('priority, status')
@@ -333,11 +405,19 @@ async function createPriorityDistributionChart() {
             'rgba(107, 114, 128, 0.8)' // Low - Gray
         ];
 
-        // Create chart
-        const ctx = document.getElementById('priorityChart').getContext('2d');
+        // Get canvas
+        const canvas = document.getElementById('priorityChart');
+        if (!canvas) {
+            console.error('Priority chart canvas not found');
+            return;
+        }
         
+        const ctx = canvas.getContext('2d');
+        
+        // Destroy existing chart
         if (app.charts.priority) {
             app.charts.priority.destroy();
+            app.charts.priority = null;
         }
 
         app.charts.priority = new Chart(ctx, {
@@ -372,6 +452,8 @@ async function createPriorityDistributionChart() {
             }
         });
 
+        console.log('✅ Priority distribution chart created');
+
     } catch (error) {
         console.error('Error creating priority distribution chart:', error);
         showChartError('priorityChart', 'Failed to load priority distribution');
@@ -379,12 +461,20 @@ async function createPriorityDistributionChart() {
 }
 
 /**
- * Create agent performance chart
+ * Create agent performance chart - WITH GUARDS
  */
 async function createAgentPerformanceChart() {
     if (!app || !app.supabase) return;
+    
+    // Check if chart already exists
+    if (app.charts.agentPerformance && app.charts.agentPerformance.data) {
+        console.log('Agent performance chart already exists, skipping...');
+        return;
+    }
 
     try {
+        console.log('Creating agent performance chart...');
+        
         // Get agents and their cases
         const { data: agents, error: agentsError } = await app.supabase
             .from('agents')
@@ -431,11 +521,19 @@ async function createAgentPerformanceChart() {
             };
         });
 
-        // Create chart
-        const ctx = document.getElementById('agentChart').getContext('2d');
+        // Get canvas
+        const canvas = document.getElementById('agentChart');
+        if (!canvas) {
+            console.error('Agent chart canvas not found');
+            return;
+        }
         
+        const ctx = canvas.getContext('2d');
+        
+        // Destroy existing chart
         if (app.charts.agentPerformance) {
             app.charts.agentPerformance.destroy();
+            app.charts.agentPerformance = null;
         }
 
         app.charts.agentPerformance = new Chart(ctx, {
@@ -522,6 +620,8 @@ async function createAgentPerformanceChart() {
                 }
             }
         });
+
+        console.log('✅ Agent performance chart created');
 
     } catch (error) {
         console.error('Error creating agent performance chart:', error);
@@ -705,6 +805,7 @@ function showChartError(canvasId, message) {
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#f3f4f6';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
@@ -715,15 +816,40 @@ function showChartError(canvasId, message) {
 }
 
 /**
- * Destroy all charts (cleanup)
+ * Destroy all charts (cleanup) - IMPROVED VERSION
  */
 function destroyAllCharts() {
+    console.log('🧹 Destroying all existing charts...');
+    
     if (app && app.charts) {
-        Object.values(app.charts).forEach(chart => {
-            if (chart && chart.destroy) {
-                chart.destroy();
+        Object.keys(app.charts).forEach(chartKey => {
+            if (app.charts[chartKey] && typeof app.charts[chartKey].destroy === 'function') {
+                try {
+                    app.charts[chartKey].destroy();
+                    console.log(`✅ Destroyed chart: ${chartKey}`);
+                } catch (error) {
+                    console.warn(`⚠️ Error destroying chart ${chartKey}:`, error);
+                }
+                app.charts[chartKey] = null;
             }
         });
         app.charts = {};
     }
+    
+    // Also clear any orphaned Chart.js instances
+    if (window.Chart && window.Chart.instances) {
+        window.Chart.instances.forEach(instance => {
+            try {
+                instance.destroy();
+            } catch (error) {
+                console.warn('Error destroying Chart.js instance:', error);
+            }
+        });
+    }
+}
+
+// Utility function (make sure it exists)
+function capitalize(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }

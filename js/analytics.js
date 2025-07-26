@@ -701,12 +701,12 @@ function createAgentDetailCard(agent, cases) {
     ).length;
 
     const responseTimes = cases
-        .filter(c => c.response_time_minutes)
-        .map(c => c.response_time_minutes);
-    
-    const avgResponseTime = responseTimes.length > 0
-        ? Math.round(responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length)
-        : null;
+    .filter(c => c.response_time_minutes && c.response_time_minutes > 0)
+    .map(c => c.response_time_minutes);
+
+const avgResponseTime = responseTimes.length > 0
+    ? Math.round(responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length)
+    : null;
 
     const resolutionRate = totalCases > 0 ? Math.round((resolvedCases / totalCases) * 100) : 0;
 
@@ -787,9 +787,9 @@ function createAgentDetailCard(agent, cases) {
                     </div>
                 ` : ''}
                 <div class="flex justify-between text-sm mt-1">
-                    <span class="text-gray-500">Max Concurrent:</span>
-                    <span class="font-medium">${agent.max_concurrent_cases || 10}</span>
-                </div>
+    <span class="text-gray-500">Current Load:</span>
+    <span class="font-medium">${agent.current_case_count} cases</span>
+</div>
             </div>
         </div>
     `;

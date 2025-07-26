@@ -701,3 +701,272 @@ body {
     height: 300px !important;
     max-height: 300px !important;
 }
+
+/* Cases section container */
+#cases-section {
+    padding: 1rem;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+/* Cases table wrapper */
+.cases-table-wrapper {
+    background: white;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    border: 1px solid #e5e7eb;
+    margin-top: 1.5rem;
+}
+
+/* Cases table responsive container */
+.cases-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+}
+
+/* Cases table styling */
+.cases-table {
+    min-width: 100%;
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed; /* Fixed layout for better control */
+}
+
+/* Table header styling */
+.cases-table thead {
+    background-color: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.cases-table th {
+    padding: 0.75rem;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+/* Fixed column widths for better layout */
+.cases-table th:nth-child(1), /* Case Number */
+.cases-table td:nth-child(1) {
+    width: 140px;
+    min-width: 140px;
+}
+
+.cases-table th:nth-child(2), /* Subject */
+.cases-table td:nth-child(2) {
+    width: auto;
+    min-width: 200px;
+    max-width: 300px;
+}
+
+.cases-table th:nth-child(3), /* Priority */
+.cases-table td:nth-child(3) {
+    width: 100px;
+    min-width: 100px;
+}
+
+.cases-table th:nth-child(4), /* Status */
+.cases-table td:nth-child(4) {
+    width: 120px;
+    min-width: 120px;
+}
+
+.cases-table th:nth-child(5), /* Agent */
+.cases-table td:nth-child(5) {
+    width: 140px;
+    min-width: 140px;
+}
+
+.cases-table th:nth-child(6), /* Created */
+.cases-table td:nth-child(6) {
+    width: 120px;
+    min-width: 120px;
+}
+
+.cases-table th:nth-child(7), /* TAT */
+.cases-table td:nth-child(7) {
+    width: 80px;
+    min-width: 80px;
+}
+
+.cases-table th:nth-child(8), /* Actions */
+.cases-table td:nth-child(8) {
+    width: 100px;
+    min-width: 100px;
+}
+
+/* Table body styling */
+.cases-table tbody tr {
+    border-bottom: 1px solid #f3f4f6;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.cases-table tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+.cases-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.cases-table td {
+    padding: 0.75rem;
+    font-size: 0.875rem;
+    color: #374151;
+    vertical-align: top;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+    .cases-table th:nth-child(6), /* Hide Created column on tablets */
+    .cases-table td:nth-child(6) {
+        display: none;
+    }
+    
+    .cases-table th:nth-child(2), /* Smaller subject column */
+    .cases-table td:nth-child(2) {
+        max-width: 200px;
+    }
+}
+
+@media (max-width: 768px) {
+    #cases-section {
+        padding: 0.5rem;
+    }
+    
+    .cases-table th,
+    .cases-table td {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.75rem;
+    }
+    
+    /* Hide less important columns on mobile */
+    .cases-table th:nth-child(5), /* Hide Agent column */
+    .cases-table td:nth-child(5),
+    .cases-table th:nth-child(6), /* Hide Created column */
+    .cases-table td:nth-child(6) {
+        display: none;
+    }
+    
+    /* Adjust remaining column widths */
+    .cases-table th:nth-child(1),
+    .cases-table td:nth-child(1) {
+        width: 100px;
+        min-width: 100px;
+    }
+    
+    .cases-table th:nth-child(2),
+    .cases-table td:nth-child(2) {
+        min-width: 150px;
+        max-width: 200px;
+    }
+    
+    .cases-table th:nth-child(3),
+    .cases-table td:nth-child(3) {
+        width: 80px;
+        min-width: 80px;
+    }
+    
+    .cases-table th:nth-child(4),
+    .cases-table td:nth-child(4) {
+        width: 90px;
+        min-width: 90px;
+    }
+}
+
+/* Filter section responsive */
+.cases-filters {
+    background: white;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    border: 1px solid #e5e7eb;
+    margin-bottom: 1.5rem;
+}
+
+.cases-filters .grid {
+    gap: 1rem;
+}
+
+@media (max-width: 768px) {
+    .cases-filters .grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    .cases-filters {
+        padding: 1rem;
+    }
+}
+
+/* Badge improvements for smaller screens */
+.cases-table .badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .cases-table .badge {
+        font-size: 0.625rem;
+        padding: 0.125rem 0.375rem;
+    }
+}
+
+/* Truncation utilities */
+.truncate-cell {
+    max-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Action buttons styling */
+.action-buttons {
+    display: flex;
+    gap: 0.25rem;
+    justify-content: center;
+}
+
+.action-buttons button {
+    padding: 0.375rem;
+    border-radius: 0.25rem;
+    transition: all 0.15s ease-in-out;
+    border: none;
+    background: transparent;
+}
+
+.action-buttons button:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Priority and status badges */
+.priority-badge,
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    font-weight: 500;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .priority-badge,
+    .status-badge {
+        font-size: 0.625rem;
+        padding: 0.125rem 0.5rem;
+    }
+    
+    .priority-badge .hidden.sm\\:inline,
+    .status-badge .hidden.sm\\:inline {
+        display: none !important;
+    }
+}

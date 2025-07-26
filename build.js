@@ -84,6 +84,7 @@ fs.writeFileSync(configPath, configContent);
 
 console.log('✅ Build completed successfully!');
 console.log(`📝 Configuration written to: ${configPath}`);
+console.log(`📏 File size: ${fs.statSync(configPath).size} bytes`);
 console.log('🚀 Ready for deployment to Render');
 
 // Display configuration summary
@@ -94,3 +95,16 @@ console.log(`   Supabase URL: ${config.SUPABASE_URL}`);
 console.log(`   Supabase Key: ${config.SUPABASE_ANON_KEY.substring(0, 20)}...`);
 console.log(`   Refresh Interval: ${config.REFRESH_INTERVAL}ms`);
 console.log(`   Debug Mode: ${config.DEBUG_MODE}`);
+console.log(`   Node Environment: ${process.env.NODE_ENV || 'development'}`);
+
+// Verify file contents
+try {
+    const fileContent = fs.readFileSync(configPath, 'utf8');
+    if (fileContent.includes('window.CONFIG')) {
+        console.log('✅ Config file structure verified');
+    } else {
+        console.warn('⚠️  Config file may be malformed');
+    }
+} catch (err) {
+    console.error('❌ Could not verify config file:', err.message);
+}

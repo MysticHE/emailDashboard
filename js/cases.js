@@ -115,7 +115,8 @@ function createDetailedCaseRow(case_item) {
         'in_progress': { bg: 'bg-yellow-100', text: 'text-yellow-800' },
         'pending_customer': { bg: 'bg-orange-100', text: 'text-orange-800' },
         'resolved': { bg: 'bg-gray-100', text: 'text-gray-800' },
-        'closed': { bg: 'bg-gray-100', text: 'text-gray-600' }
+        'closed': { bg: 'bg-gray-100', text: 'text-gray-600' },
+        'escalated': { bg: 'bg-red-100', text: 'text-red-800' }
     };
     
     const priority = priorityConfig[case_item.priority] || priorityConfig['normal'];
@@ -125,53 +126,71 @@ function createDetailedCaseRow(case_item) {
     const isOverdue = isCaseOverdue(case_item);
     const subject = case_item.email_threads?.subject || 'No subject';
     
+    // FIXED: Better responsive layout with proper column sizing
     tr.innerHTML = `
-        <td class="px-6 py-4 whitespace-nowrap">
+        <!-- Case Number - Fixed width -->
+        <td class="px-3 py-4 whitespace-nowrap w-32">
             <div class="flex items-center">
                 <span class="text-sm font-medium text-gray-900">${case_item.case_number}</span>
-                ${isOverdue ? '<span class="ml-2 text-red-500 text-xs" title="Overdue">⚠️</span>' : ''}
+                ${isOverdue ? '<span class="ml-1 text-red-500 text-xs" title="Overdue">⚠️</span>' : ''}
             </div>
         </td>
-        <td class="px-6 py-4">
-            <div class="text-sm text-gray-900 max-w-xs">
-                <p class="truncate font-medium">${truncateText(subject, 40)}</p>
-                ${case_item.providers?.name ? `<p class="text-xs text-gray-500">${case_item.providers.name}</p>` : ''}
+        
+        <!-- Subject - Flexible width, truncated -->
+        <td class="px-3 py-4 max-w-xs">
+            <div class="text-sm text-gray-900">
+                <p class="font-medium truncate" title="${subject}">${truncateText(subject, 35)}</p>
+                ${case_item.providers?.name ? `<p class="text-xs text-gray-500 truncate">${case_item.providers.name}</p>` : ''}
             </div>
         </td>
-        <td class="px-6 py-4 whitespace-nowrap">
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${priority.bg} ${priority.text}">
-                ${priority.icon} ${capitalize(case_item.priority)}
+        
+        <!-- Priority - Fixed width -->
+        <td class="px-3 py-4 whitespace-nowrap w-24">
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${priority.bg} ${priority.text}">
+                <span class="hidden sm:inline">${priority.icon} </span>${capitalize(case_item.priority)}
             </span>
         </td>
-        <td class="px-6 py-4 whitespace-nowrap">
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.bg} ${status.text}">
+        
+        <!-- Status - Fixed width -->
+        <td class="px-3 py-4 whitespace-nowrap w-28">
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${status.bg} ${status.text}">
                 ${formatStatus(case_item.status)}
             </span>
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            ${case_item.agents?.name || '<span class="text-gray-400 italic">Unassigned</span>'}
+        
+        <!-- Agent - Fixed width, truncated -->
+        <td class="px-3 py-4 whitespace-nowrap w-32">
+            <span class="text-sm text-gray-900 truncate block" title="${case_item.agents?.name || 'Unassigned'}">
+                ${case_item.agents?.name || '<span class="text-gray-400 italic">Unassigned</span>'}
+            </span>
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        
+        <!-- Created - Hidden on mobile, shown on desktop -->
+        <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell w-28">
             ${formatDate(case_item.created_at)}
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}">
+        
+        <!-- TAT - Fixed width -->
+        <td class="px-3 py-4 whitespace-nowrap text-sm w-20 ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}">
             ${tat}
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-            <div class="flex space-x-2">
+        
+        <!-- Actions - Fixed width -->
+        <td class="px-3 py-4 whitespace-nowrap text-sm font-medium w-24">
+            <div class="flex space-x-1">
                 <button 
                     onclick="event.stopPropagation(); openCaseModal('${case_item.id}')" 
-                    class="text-blue-600 hover:text-blue-900 transition-colors"
+                    class="text-blue-600 hover:text-blue-900 transition-colors p-1 rounded"
                     title="View Details"
                 >
-                    <i class="fas fa-eye"></i>
+                    <i class="fas fa-eye text-xs"></i>
                 </button>
                 <button 
                     onclick="event.stopPropagation(); quickUpdateStatus('${case_item.id}', '${case_item.status}')" 
-                    class="text-green-600 hover:text-green-900 transition-colors"
+                    class="text-green-600 hover:text-green-900 transition-colors p-1 rounded"
                     title="Quick Update"
                 >
-                    <i class="fas fa-edit"></i>
+                    <i class="fas fa-edit text-xs"></i>
                 </button>
             </div>
         </td>

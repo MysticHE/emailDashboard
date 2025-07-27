@@ -517,7 +517,8 @@ function renderMetadata(metadata) {
 function renderCaseActions(caseData) {
     const actions = [];
     
-    if (caseData.status === 'new') {
+    // START WORKING button - now shows for both 'new' AND 'assigned' status
+    if (['new', 'assigned'].includes(caseData.status)) {
         actions.push(`
             <button onclick="updateCaseStatus('${caseData.id}', 'in_progress')" 
                     class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
@@ -526,20 +527,12 @@ function renderCaseActions(caseData) {
         `);
     }
     
+    // MARK RESOLVED button - shows for active statuses
     if (['new', 'assigned', 'in_progress'].includes(caseData.status)) {
         actions.push(`
             <button onclick="updateCaseStatus('${caseData.id}', 'resolved')" 
                     class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors">
                 <i class="fas fa-check mr-1"></i>Mark Resolved
-            </button>
-        `);
-    }
-    
-    if (caseData.status !== 'resolved') {
-        actions.push(`
-            <button onclick="escalateCase('${caseData.id}')" 
-                    class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors">
-                <i class="fas fa-arrow-up mr-1"></i>Escalate
             </button>
         `);
     }

@@ -480,69 +480,69 @@ class SupportPortalApp {
     }
 
     createAgentCard(agent) {
-        const div = document.createElement('div');
-        div.className = 'flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors';
-        
-        const statusColors = {
-            'available': 'text-green-600 bg-green-100',
-            'busy': 'text-yellow-600 bg-yellow-100',
-            'break': 'text-orange-600 bg-orange-100',
-            'offline': 'text-gray-600 bg-gray-100'
-        };
-        
-        const statusColor = statusColors[agent.status] || statusColors['offline'];
-        const efficiency = this.calculateAgentEfficiency(agent);
-        
-        div.innerHTML = `
-        <div class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-            <div class="flex items-center">
-                <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mr-3">
-                    <span class="text-white font-semibold text-sm">${agent.name.charAt(0).toUpperCase()}</span>
-                </div>
-                <div>
-                    <p class="font-medium text-gray-900">${agent.name}</p>
-                    <div class="flex items-center space-x-2">
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColor}">
-                            ${agent.status}
-                        </span>
-                        ${efficiency.class ? `
-                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${efficiency.class}">
-                                ${efficiency.label}
-                            </span>
-                        ` : ''}
-                    </div>
-                </div>
+    const div = document.createElement('div');
+    div.className = 'flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors';
+    
+    const statusColors = {
+        'available': 'text-green-600 bg-green-100',
+        'busy': 'text-yellow-600 bg-yellow-100',
+        'break': 'text-orange-600 bg-orange-100',
+        'offline': 'text-gray-600 bg-gray-100'
+    };
+    
+    const statusColor = statusColors[agent.status] || statusColors['offline'];
+    const efficiency = this.calculateAgentEfficiency(agent);
+    
+    // FIXED: Remove the duplicate wrapper div and classes from innerHTML
+    div.innerHTML = `
+        <div class="flex items-center">
+            <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mr-3">
+                <span class="text-white font-semibold text-sm">${agent.name.charAt(0).toUpperCase()}</span>
             </div>
-            <div class="text-right">
-                <div class="flex flex-col space-y-1">
-                    <div class="flex justify-between items-center">
-                        <span class="text-xs text-gray-500 mr-2">Resolved:</span>
-                        <span class="text-sm font-medium">${agent.total_resolved || 0}/${agent.total_cases || 0}</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-xs text-gray-500 mr-2">Pending:</span>
-                        <span class="text-sm font-medium">${agent.pending_cases || 0}</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-xs text-gray-500 mr-2">Avg Response Time:</span>
-                        <span class="text-sm font-medium">${
-                            agent.avg_response_time 
-                                ? Math.round(agent.avg_response_time) + 'm' 
-                                : '-'
-                        }</span>
-                    </div>
-                    ${agent.unattended_emails > 0 ? `
-                        <div class="flex justify-between items-center">
-                            <span class="text-xs text-red-500 mr-2">Unattended:</span>
-                            <span class="text-sm font-medium text-red-600">${agent.unattended_emails}</span>
-                        </div>
+            <div>
+                <p class="font-medium text-gray-900">${agent.name}</p>
+                <div class="flex items-center space-x-2">
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColor}">
+                        ${agent.status}
+                    </span>
+                    ${efficiency.class ? `
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${efficiency.class}">
+                            ${efficiency.label}
+                        </span>
                     ` : ''}
                 </div>
             </div>
-        </div>`;
-        
-        return div;
-    }
+        </div>
+        <div class="text-right">
+            <div class="flex flex-col space-y-1">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs text-gray-500 mr-2">Resolved:</span>
+                    <span class="text-sm font-medium">${agent.total_resolved || 0}/${agent.total_cases || 0}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-xs text-gray-500 mr-2">Pending:</span>
+                    <span class="text-sm font-medium">${agent.pending_cases || 0}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-xs text-gray-500 mr-2">Avg Response Time:</span>
+                    <span class="text-sm font-medium">${
+                        agent.avg_response_time 
+                            ? Math.round(agent.avg_response_time) + 'm' 
+                            : '-'
+                    }</span>
+                </div>
+                ${agent.unattended_emails > 0 ? `
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-red-500 mr-2">Unattended:</span>
+                        <span class="text-sm font-medium text-red-600">${agent.unattended_emails}</span>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    
+    return div;
+}
 
     calculateAgentEfficiency(agent) {
         if (agent.status === 'offline') {

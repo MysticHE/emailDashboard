@@ -63,10 +63,10 @@ SupportPortalApp.prototype.calculateAgentPerformanceManually = async function() 
                 return resolvedToday;
             });
             
-            // FIXED: Pending excludes both resolved and closed
+             // Counts everything except resolved/closed
             const pendingCases = agentCases.filter(c => 
-                ['new', 'assigned', 'in_progress', 'pending_customer'].includes(c.status)
-            );
+    !['resolved', 'closed'].includes(c.status)
+);
             
             const unattendedCases = agentCases.filter(c => 
                 c.status === 'new' && 

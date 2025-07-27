@@ -46,41 +46,51 @@ SupportPortalApp.prototype.calculateAgentPerformanceManually = async function() 
         const today = new Date().toISOString().split('T')[0];
         
         return agents.map(agent => {
-            const agentCases = cases.filter(c => c.agent_id === agent.id);
-            
-            // FIXED: Count both resolved and closed cases for "resolved today"
-            const todayCases = agentCases.filter(c => {
-                const resolvedToday = (c.status === 'resolved' || c.status === 'closed') && 
-                                    c.resolved_at && c.resolved_at.startsWith(today);
-                return resolvedToday;
-            });
-            
-             // Counts everything except resolved/closed
-            const pendingCases = agentCases.filter(c => 
-    !['resolved', 'closed'].includes(c.status)
-);
-            
-            const unattendedCases = agentCases.filter(c => 
-                c.status === 'new' && 
-                new Date(c.created_at) > new Date(Date.now() - 2 * 60 * 60 * 1000)
-            );
-            
-            const responseTimes = todayCases
-                .filter(c => c.response_time_minutes)
-                .map(c => c.response_time_minutes);
-            
-            const avgResponseTime = responseTimes.length > 0 
-                ? responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length
-                : null;
-            
-            return {
-                ...agent,
-                resolved_today: todayCases.length,
-                pending_cases: pendingCases.length,
-                unattended_emails: unattendedCases.length,
-                avg_response_time_today: avgResponseTime
-            };
-        });
+    const agentCases = cases.filter(c => c.agent_id === agent.id);
+    
+    // EXISTING: Today's resolved (keep this)
+    const todayResolved = agentCases.filter(c => {
+        const resolvedToday = (c.status === 'resolved' || c.status === 'closed') && 
+                            c.resolved_at && c.resolved_at.startsWith(today);
+        return resolvedToday;
+    });
+    
+    // NEW: Add these calculations
+    const totalResolvedCases = agentCases.filter(c => 
+        ['resolved', 'closed'].includes(c.status)
+    );
+    
+    const totalCases = agentCases.length;
+    
+    // EXISTING: Keep these
+    const pendingCases = agentCases.filter(c => 
+        !['resolved', 'closed'].includes(c.status)
+    );
+    
+    const unattendedCases = agentCases.filter(c => 
+        c.status === 'new' && 
+        new Date(c.created_at) > new Date(Date.now() - 2 * 60 * 60 * 1000)
+    );
+    
+    // Use all-time response time average
+    const allResponseTimes = agentCases
+        .filter(c => c.response_time_minutes && c.response_time_minutes > 0)
+        .map(c => c.response_time_minutes);
+    
+    const avgResponseTime = allResponseTimes.length > 0 
+        ? allResponseTimes.reduce((sum, time) => sum + time, 0) / allResponseTimes.length
+        : null;
+    
+    return {
+        ...agent,
+        resolved_today: todayResolved.length,
+        total_resolved: totalResolvedCases.length,    // NEW
+        total_cases: totalCases,                      // NEW  
+        pending_cases: pendingCases.length,
+        unattended_emails: unattendedCases.length,
+        avg_response_time: avgResponseTime            // Changed from today-only
+    };
+});
         
     } catch (error) {
         console.error('Error calculating agent performance manually:', error);
@@ -103,6 +113,7 @@ SupportPortalApp.prototype.createAgentCard = function(agent) {
     const efficiency = this.calculateAgentEfficiency(agent);
     
     div.innerHTML = `
+    <div class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
         <div class="flex items-center">
             <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mr-3">
                 <span class="text-white font-semibold text-sm">${agent.name.charAt(0).toUpperCase()}</span>
@@ -124,18 +135,18 @@ SupportPortalApp.prototype.createAgentCard = function(agent) {
         <div class="text-right">
             <div class="flex flex-col space-y-1">
                 <div class="flex justify-between items-center">
-                    <span class="text-xs text-gray-500 mr-2">Today:</span>
-                    <span class="text-sm font-medium">${agent.resolved_today || 0} resolved</span>
+                    <span class="text-xs text-gray-500 mr-2">Resolved:</span>
+                    <span class="text-sm font-medium">${agent.total_resolved || 0}/${agent.total_cases || 0}</span>
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-xs text-gray-500 mr-2">Pending:</span>
                     <span class="text-sm font-medium">${agent.pending_cases || 0}</span>
                 </div>
                 <div class="flex justify-between items-center">
-                    <span class="text-xs text-gray-500 mr-2">Avg TAT:</span>
+                    <span class="text-xs text-gray-500 mr-2">Avg Response Time:</span>
                     <span class="text-sm font-medium">${
-                        agent.avg_response_time_today 
-                            ? Math.round(agent.avg_response_time_today) + 'm' 
+                        agent.avg_response_time 
+                            ? Math.round(agent.avg_response_time) + 'm' 
                             : '-'
                     }</span>
                 </div>
@@ -147,7 +158,8 @@ SupportPortalApp.prototype.createAgentCard = function(agent) {
                 ` : ''}
             </div>
         </div>
-    `;
+    </div>
+`;
     
     return div;
 };

@@ -6,16 +6,8 @@
 // Extend the SupportPortalApp class with dashboard methods
 SupportPortalApp.prototype.loadAgentPerformance = async function() {
     try {
-        // Try to load from agent_performance view first
-        let { data: agents, error } = await this.supabase
-            .from('agent_performance')
-            .select('*');
-        
-        if (error) {
-            // If view doesn't exist, load manually
-            console.warn('agent_performance view not found, calculating manually');
-            agents = await this.calculateAgentPerformanceManually();
-        }
+        // SIMPLIFIED: Always use manual calculation (no view issues)
+        const agents = await this.calculateAgentPerformanceManually();
         
         const agentList = document.getElementById('agentList');
         agentList.innerHTML = '';

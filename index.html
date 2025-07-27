@@ -103,71 +103,55 @@
         <!-- Dashboard Section -->
         <div id="dashboard-section" class="section">
             <!-- Real-time Metrics Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <!-- Today's Cases -->
-                <div class="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
-                                <i class="fas fa-plus text-white text-sm"></i>
-                            </div>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Today's Cases</p>
-                            <p class="text-2xl font-bold text-gray-900" id="todayCases">-</p>
-                            <p class="text-xs text-gray-400 mt-1" id="todayCasesChange"></p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Resolved Today -->
-                <div class="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                                <i class="fas fa-check text-white text-sm"></i>
-                            </div>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Resolved Today</p>
-                            <p class="text-2xl font-bold text-gray-900" id="resolvedToday">-</p>
-                            <p class="text-xs text-gray-400 mt-1" id="resolvedTodayChange"></p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Pending Cases -->
-                <div class="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
-                                <i class="fas fa-clock text-white text-sm"></i>
-                            </div>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Pending Cases</p>
-                            <p class="text-2xl font-bold text-gray-900" id="pendingCases">-</p>
-                            <p class="text-xs text-gray-400 mt-1" id="pendingCasesChange"></p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Average TAT -->
-                <div class="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
-                                <i class="fas fa-stopwatch text-white text-sm"></i>
-                            </div>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Avg Response Time</p>
-                            <p class="text-2xl font-bold text-gray-900" id="avgResponseTime">-</p>
-                            <p class="text-xs text-gray-400 mt-1" id="avgResponseTimeChange"></p>
-                        </div>
-                    </div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- Total Cases Resolved -->
+    <div class="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                    <i class="fas fa-check-circle text-white text-sm"></i>
                 </div>
             </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-500">Total Cases Resolved</p>
+                <p class="text-2xl font-bold text-gray-900" id="totalResolved">-</p>
+                <p class="text-xs text-gray-400 mt-1">Team completion rate</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Cases with Breakdown -->
+    <div class="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <div class="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
+                    <i class="fas fa-clock text-white text-sm"></i>
+                </div>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-500">Pending Cases</p>
+                <p class="text-2xl font-bold text-gray-900" id="pendingCases">-</p>
+                <p class="text-xs text-gray-600 mt-1" id="pendingBreakdown">Loading...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Team Average Response Time -->
+    <div class="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
+                    <i class="fas fa-stopwatch text-white text-sm"></i>
+                </div>
+            </div>
+            <div class="ml-4">
+                <p class="text-sm font-medium text-gray-500">Avg Response Time</p>
+                <p class="text-2xl font-bold text-gray-900" id="avgResponseTime">-</p>
+                <p class="text-xs text-gray-400 mt-1">Team average</p>
+            </div>
+        </div>
+    </div>
+</div>
 
             <!-- Priority Cases Alert -->
             <div id="priorityAlert" class="hidden bg-red-50 border-l-4 border-red-400 p-4 mb-6">

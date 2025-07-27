@@ -148,181 +148,179 @@ class SupportPortalApp {
     }
 
     async loadTeamOverview() {
-        try {
-            const { data, error } = await this.supabase
-                .from('team_overview')
-                .select('*')
-                .single();
-            
-            if (error) {
-                // If view doesn't exist, calculate manually
-                console.warn('team_overview view not found, calculating manually');
-                return this.calculateTeamOverviewManually();
-            }
-            
-            this.updateTeamMetrics(data);
-            this.checkPriorityAlerts(data);
-            
-        } catch (error) {
-            console.error('Error loading team overview:', error);
-            // Fallback to manual calculation
-            await this.calculateTeamOverviewManually();
-        }
+    console.log('🔄 === LOADING TEAM OVERVIEW (FORCED MANUAL) ===');
+    
+    try {
+        // ALWAYS use manual calculation - bypass database view completely
+        await this.calculateTeamOverviewManually();
+    } catch (error) {
+        console.error('❌ Error in loadTeamOverview:', error);
+        // Even if error, try manual calculation
+        await this.calculateTeamOverviewManually();
     }
+}
 
     async calculateTeamOverviewManually() {
-        try {
-            console.log('🔄 Loading live dashboard data...');
+    console.log('🔄 === STARTING MANUAL CALCULATION ===');
+    
+    try {
+        // Get ALL cases with specific fields
+        const { data: cases, error } = await this.supabase
+            .from('cases')
+            .select('id, case_number, status, priority, response_time_minutes, created_at, resolved_at');
             
-            // Query with explicit field selection based on your schema
-            const { data: cases, error } = await this.supabase
-                .from('cases')
-                .select('id, case_number, status, priority, response_time_minutes, created_at, resolved_at, agent_id');
-                
-            if (error) {
-                console.error('❌ Supabase error:', error);
-                throw error;
-            }
-            
-            console.log(`📊 Retrieved ${cases ? cases.length : 0} cases from Supabase`);
-            
-            if (!cases || cases.length === 0) {
-                console.warn('⚠️ No cases found. Run comprehensive_test_data.sql to add test data.');
-                this.updateTeamMetrics({
-                    total_cases: 0,
-                    total_resolved: 0,
-                    total_pending: 0,
-                    pending_breakdown: {vip: 0, urgent: 0, normal: 0, low: 0},
-                    team_avg_response_time: 0
-                });
-                return;
-            }
-            
-            // Log actual data structure for debugging
-            console.log('📝 Sample case:', cases[0]);
-            
-            // Based on your actual status values from schema
-            const RESOLVED_STATUSES = ['resolved', 'closed'];
-            
-            // Calculate metrics using your actual data
-            const totalCases = cases.length;
-            const resolvedCases = cases.filter(c => 
-                c.status && RESOLVED_STATUSES.includes(c.status.toLowerCase().trim())
-            );
-            const totalResolved = resolvedCases.length;
-            
-            console.log(`📈 Total: ${totalCases}, Resolved: ${totalResolved}`);
-            
-            // Pending cases calculation
-            const pendingCases = cases.filter(c => 
-                c.status && !RESOLVED_STATUSES.includes(c.status.toLowerCase().trim())
-            );
-            
-            // Priority breakdown based on your actual priorities
-            const pendingBreakdown = {
-                vip: pendingCases.filter(c => c.priority && c.priority.toLowerCase().trim() === 'vip').length,
-                urgent: pendingCases.filter(c => c.priority && c.priority.toLowerCase().trim() === 'urgent').length,
-                normal: pendingCases.filter(c => c.priority && c.priority.toLowerCase().trim() === 'normal').length,
-                low: pendingCases.filter(c => c.priority && c.priority.toLowerCase().trim() === 'low').length
-            };
-            
-            console.log('📊 Pending breakdown:', pendingBreakdown);
-            
-            // Response time calculation
-            const validResponseTimes = cases
-                .filter(c => c.response_time_minutes && typeof c.response_time_minutes === 'number' && c.response_time_minutes > 0)
-                .map(c => c.response_time_minutes);
-            
-            let avgResponseTime = 0;
-            if (validResponseTimes.length > 0) {
-                avgResponseTime = Math.round(validResponseTimes.reduce((sum, time) => sum + time, 0) / validResponseTimes.length);
-            }
-            
-            console.log(`⏱️ Avg response time: ${avgResponseTime}m from ${validResponseTimes.length} cases`);
-            
-            const metrics = {
-                total_cases: totalCases,
-                total_resolved: totalResolved,
-                total_pending: pendingCases.length,
-                pending_breakdown: pendingBreakdown,
-                team_avg_response_time: avgResponseTime
-            };
-            
-            console.log('✅ Final metrics:', metrics);
-            this.updateTeamMetrics(metrics);
-            this.checkPriorityAlerts(metrics);
-            
-        } catch (error) {
-            console.error('❌ Dashboard calculation error:', error);
-            showNotification('Failed to load dashboard data. Check console for details.', 'error');
-            
-            // Show error state in metrics
-            this.updateTeamMetrics({
+        if (error) {
+            console.error('❌ Supabase query error:', error);
+            throw error;
+        }
+        
+        console.log(`📊 Retrieved ${cases ? cases.length : 0} cases from database`);
+        
+        if (!cases || cases.length === 0) {
+            console.warn('⚠️ No cases found in database');
+            this.forceUpdateDashboard({
                 total_cases: 0,
                 total_resolved: 0,
                 total_pending: 0,
                 pending_breakdown: {vip: 0, urgent: 0, normal: 0, low: 0},
                 team_avg_response_time: 0
             });
+            return;
         }
+        
+        // Log sample for debugging
+        console.log('📝 First case sample:', cases[0]);
+        
+        // === STEP 1: Calculate total and resolved ===
+        const totalCases = cases.length;
+        const RESOLVED_STATUSES = ['resolved', 'closed'];
+        
+        const resolvedCases = cases.filter(c => {
+            if (!c.status) return false;
+            const status = c.status.toLowerCase().trim();
+            const isResolved = RESOLVED_STATUSES.includes(status);
+            if (isResolved) {
+                console.log(`✅ Resolved: ${c.case_number} (${c.status})`);
+            }
+            return isResolved;
+        });
+        
+        const totalResolved = resolvedCases.length;
+        
+        console.log(`📊 TOTALS: ${totalResolved} resolved out of ${totalCases} total`);
+        
+        // === STEP 2: Calculate pending cases ===
+        const pendingCases = cases.filter(c => {
+            if (!c.status) return true; // treat null status as pending
+            const status = c.status.toLowerCase().trim();
+            const isPending = !RESOLVED_STATUSES.includes(status);
+            if (isPending) {
+                console.log(`⏳ Pending: ${c.case_number} (${c.status}, priority: ${c.priority})`);
+            }
+            return isPending;
+        });
+        
+        console.log(`📊 PENDING: ${pendingCases.length} cases`);
+        
+        // === STEP 3: Breakdown pending by priority ===
+        const pendingBreakdown = {
+            vip: 0,
+            urgent: 0,
+            normal: 0,
+            low: 0
+        };
+        
+        pendingCases.forEach(c => {
+            if (c.priority) {
+                const priority = c.priority.toLowerCase().trim();
+                if (pendingBreakdown.hasOwnProperty(priority)) {
+                    pendingBreakdown[priority]++;
+                    console.log(`📊 Pending ${priority}: ${c.case_number}`);
+                } else {
+                    console.warn(`⚠️ Unknown priority: ${c.priority} for case ${c.case_number}`);
+                }
+            } else {
+                console.warn(`⚠️ Case ${c.case_number} has no priority`);
+            }
+        });
+        
+        console.log('📊 PENDING BREAKDOWN:', pendingBreakdown);
+        
+        // === STEP 4: Calculate average response time ===
+        const validResponseTimes = cases
+            .filter(c => c.response_time_minutes && typeof c.response_time_minutes === 'number' && c.response_time_minutes > 0)
+            .map(c => c.response_time_minutes);
+        
+        let avgResponseTime = 0;
+        if (validResponseTimes.length > 0) {
+            avgResponseTime = Math.round(validResponseTimes.reduce((sum, time) => sum + time, 0) / validResponseTimes.length);
+        }
+        
+        console.log(`⏱️ Response time: ${avgResponseTime}m (from ${validResponseTimes.length} cases)`);
+        
+        // === STEP 5: Prepare final metrics ===
+        const metrics = {
+            total_cases: totalCases,
+            total_resolved: totalResolved,
+            total_pending: pendingCases.length,
+            pending_breakdown: pendingBreakdown,
+            team_avg_response_time: avgResponseTime
+        };
+        
+        console.log('📋 FINAL CALCULATED METRICS:', metrics);
+        
+        // === STEP 6: Force update dashboard ===
+        this.forceUpdateDashboard(metrics);
+        this.checkPriorityAlerts(metrics);
+        
+    } catch (error) {
+        console.error('❌ Error in manual calculation:', error);
+        showNotification('Failed to calculate dashboard metrics', 'error');
+        
+        // Show error state
+        this.forceUpdateDashboard({
+            total_cases: 0,
+            total_resolved: 0,
+            total_pending: 0,
+            pending_breakdown: {vip: 0, urgent: 0, normal: 0, low: 0},
+            team_avg_response_time: 0
+        });
     }
-
-    updateTeamMetrics(data) {
-    console.log('🔄 Updating dashboard display with:', data);
+}
+    forceUpdateDashboard(data) {
+    console.log('🔧 === FORCE UPDATING DASHBOARD ===');
+    console.log('📊 Data to display:', data);
     
     try {
-        // DETECT DATA FORMAT and normalize it
-        let normalizedData;
+        // DIRECT DOM manipulation - bypass any format conversion issues
         
-        if (data.hasOwnProperty('total_cases_today')) {
-            // DATABASE VIEW FORMAT - convert to expected format
-            console.log('📊 Converting database view format to expected format');
-            normalizedData = {
-                total_cases: data.total_cases || 0,
-                total_resolved: data.total_resolved || 0, 
-                total_pending: data.total_pending || 0,
-                pending_breakdown: {
-                    vip: data.vip_pending || 0,
-                    urgent: data.urgent_pending || 0,
-                    normal: data.normal_pending || 0,
-                    low: data.low_pending || 0
-                },
-                team_avg_response_time: data.team_avg_response_time || 0
-            };
-        } else {
-            // MANUAL CALCULATION FORMAT - use as-is
-            console.log('📊 Using manual calculation format');
-            normalizedData = data;
-        }
-        
-        console.log('📋 Normalized data:', normalizedData);
-        
-        // Update Total Resolved display
+        // Total Resolved
         const totalResolvedEl = document.getElementById('totalResolved');
         if (totalResolvedEl) {
-            const display = `${normalizedData.total_resolved || 0}/${normalizedData.total_cases || 0}`;
+            const display = `${data.total_resolved || 0}/${data.total_cases || 0}`;
             totalResolvedEl.textContent = display;
-            console.log(`✅ Total Resolved: ${display}`);
+            console.log(`✅ FORCED Total Resolved: ${display}`);
         } else {
             console.error('❌ #totalResolved element not found');
         }
         
-        // Update Pending Cases count
+        // Pending Cases Count
         const pendingCasesEl = document.getElementById('pendingCases');
         if (pendingCasesEl) {
-            const count = (normalizedData.total_pending || 0).toString();
+            const count = (data.total_pending || 0).toString();
             pendingCasesEl.textContent = count;
-            console.log(`✅ Pending Cases: ${count}`);
+            console.log(`✅ FORCED Pending Cases: ${count}`);
         } else {
             console.error('❌ #pendingCases element not found');
         }
         
-        // Update Pending Breakdown text
+        // Pending Breakdown Text
         const pendingBreakdownEl = document.getElementById('pendingBreakdown');
         if (pendingBreakdownEl) {
-            const breakdown = normalizedData.pending_breakdown || {vip: 0, urgent: 0, normal: 0, low: 0};
+            const breakdown = data.pending_breakdown || {vip: 0, urgent: 0, normal: 0, low: 0};
             const parts = [];
             
+            // Build breakdown text
             if (breakdown.vip > 0) parts.push(`${breakdown.vip} vip`);
             if (breakdown.urgent > 0) parts.push(`${breakdown.urgent} urgent`);
             if (breakdown.normal > 0) parts.push(`${breakdown.normal} normal`);
@@ -330,28 +328,34 @@ class SupportPortalApp {
             
             const text = parts.length > 0 ? parts.join(', ') : 'No pending cases';
             pendingBreakdownEl.textContent = text;
-            console.log(`✅ Pending Breakdown: ${text}`);
+            console.log(`✅ FORCED Pending Breakdown: "${text}"`);
         } else {
             console.error('❌ #pendingBreakdown element not found');
         }
         
-        // Update Average Response Time
+        // Average Response Time
         const avgResponseTimeEl = document.getElementById('avgResponseTime');
         if (avgResponseTimeEl) {
-            const display = normalizedData.team_avg_response_time && normalizedData.team_avg_response_time > 0 
-                ? `${normalizedData.team_avg_response_time}m` 
+            const display = data.team_avg_response_time && data.team_avg_response_time > 0 
+                ? `${data.team_avg_response_time}m` 
                 : '-';
             avgResponseTimeEl.textContent = display;
-            console.log(`✅ Avg Response Time: ${display}`);
+            console.log(`✅ FORCED Avg Response Time: ${display}`);
         } else {
             console.error('❌ #avgResponseTime element not found');
         }
         
+        console.log('✅ === DASHBOARD FORCE UPDATE COMPLETE ===');
+        
     } catch (error) {
-        console.error('❌ Error updating team metrics:', error);
-        showNotification('Failed to update dashboard display', 'error');
+        console.error('❌ Error in force update:', error);
     }
 }
+
+    updateTeamMetrics(data) {
+        console.log('🔄 updateTeamMetrics called, redirecting to forceUpdateDashboard');
+        this.forceUpdateDashboard(data);
+    }
 
     checkPriorityAlerts(data) {
         const alertElement = document.getElementById('priorityAlert');

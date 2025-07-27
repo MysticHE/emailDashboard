@@ -268,64 +268,90 @@ class SupportPortalApp {
     }
 
     updateTeamMetrics(data) {
-        console.log('🔄 Updating dashboard display with:', data);
+    console.log('🔄 Updating dashboard display with:', data);
+    
+    try {
+        // DETECT DATA FORMAT and normalize it
+        let normalizedData;
         
-        try {
-            // Update Total Resolved display
-            const totalResolvedEl = document.getElementById('totalResolved');
-            if (totalResolvedEl) {
-                const display = `${data.total_resolved || 0}/${data.total_cases || 0}`;
-                totalResolvedEl.textContent = display;
-                console.log(`✅ Total Resolved: ${display}`);
-            } else {
-                console.error('❌ #totalResolved element not found');
-            }
-            
-            // Update Pending Cases count
-            const pendingCasesEl = document.getElementById('pendingCases');
-            if (pendingCasesEl) {
-                const count = (data.total_pending || 0).toString();
-                pendingCasesEl.textContent = count;
-                console.log(`✅ Pending Cases: ${count}`);
-            } else {
-                console.error('❌ #pendingCases element not found');
-            }
-            
-            // Update Pending Breakdown text
-            const pendingBreakdownEl = document.getElementById('pendingBreakdown');
-            if (pendingBreakdownEl) {
-                const breakdown = data.pending_breakdown || {vip: 0, urgent: 0, normal: 0, low: 0};
-                const parts = [];
-                
-                if (breakdown.vip > 0) parts.push(`${breakdown.vip} vip`);
-                if (breakdown.urgent > 0) parts.push(`${breakdown.urgent} urgent`);
-                if (breakdown.normal > 0) parts.push(`${breakdown.normal} normal`);
-                if (breakdown.low > 0) parts.push(`${breakdown.low} low`);
-                
-                const text = parts.length > 0 ? parts.join(', ') : 'No pending cases';
-                pendingBreakdownEl.textContent = text;
-                console.log(`✅ Pending Breakdown: ${text}`);
-            } else {
-                console.error('❌ #pendingBreakdown element not found');
-            }
-            
-            // Update Average Response Time
-            const avgResponseTimeEl = document.getElementById('avgResponseTime');
-            if (avgResponseTimeEl) {
-                const display = data.team_avg_response_time && data.team_avg_response_time > 0 
-                    ? `${data.team_avg_response_time}m` 
-                    : '-';
-                avgResponseTimeEl.textContent = display;
-                console.log(`✅ Avg Response Time: ${display}`);
-            } else {
-                console.error('❌ #avgResponseTime element not found');
-            }
-            
-        } catch (error) {
-            console.error('❌ Error updating team metrics:', error);
-            showNotification('Failed to update dashboard display', 'error');
+        if (data.hasOwnProperty('total_cases_today')) {
+            // DATABASE VIEW FORMAT - convert to expected format
+            console.log('📊 Converting database view format to expected format');
+            normalizedData = {
+                total_cases: data.total_cases || 0,
+                total_resolved: data.total_resolved || 0, 
+                total_pending: data.total_pending || 0,
+                pending_breakdown: {
+                    vip: data.vip_pending || 0,
+                    urgent: data.urgent_pending || 0,
+                    normal: data.normal_pending || 0,
+                    low: data.low_pending || 0
+                },
+                team_avg_response_time: data.team_avg_response_time || 0
+            };
+        } else {
+            // MANUAL CALCULATION FORMAT - use as-is
+            console.log('📊 Using manual calculation format');
+            normalizedData = data;
         }
+        
+        console.log('📋 Normalized data:', normalizedData);
+        
+        // Update Total Resolved display
+        const totalResolvedEl = document.getElementById('totalResolved');
+        if (totalResolvedEl) {
+            const display = `${normalizedData.total_resolved || 0}/${normalizedData.total_cases || 0}`;
+            totalResolvedEl.textContent = display;
+            console.log(`✅ Total Resolved: ${display}`);
+        } else {
+            console.error('❌ #totalResolved element not found');
+        }
+        
+        // Update Pending Cases count
+        const pendingCasesEl = document.getElementById('pendingCases');
+        if (pendingCasesEl) {
+            const count = (normalizedData.total_pending || 0).toString();
+            pendingCasesEl.textContent = count;
+            console.log(`✅ Pending Cases: ${count}`);
+        } else {
+            console.error('❌ #pendingCases element not found');
+        }
+        
+        // Update Pending Breakdown text
+        const pendingBreakdownEl = document.getElementById('pendingBreakdown');
+        if (pendingBreakdownEl) {
+            const breakdown = normalizedData.pending_breakdown || {vip: 0, urgent: 0, normal: 0, low: 0};
+            const parts = [];
+            
+            if (breakdown.vip > 0) parts.push(`${breakdown.vip} vip`);
+            if (breakdown.urgent > 0) parts.push(`${breakdown.urgent} urgent`);
+            if (breakdown.normal > 0) parts.push(`${breakdown.normal} normal`);
+            if (breakdown.low > 0) parts.push(`${breakdown.low} low`);
+            
+            const text = parts.length > 0 ? parts.join(', ') : 'No pending cases';
+            pendingBreakdownEl.textContent = text;
+            console.log(`✅ Pending Breakdown: ${text}`);
+        } else {
+            console.error('❌ #pendingBreakdown element not found');
+        }
+        
+        // Update Average Response Time
+        const avgResponseTimeEl = document.getElementById('avgResponseTime');
+        if (avgResponseTimeEl) {
+            const display = normalizedData.team_avg_response_time && normalizedData.team_avg_response_time > 0 
+                ? `${normalizedData.team_avg_response_time}m` 
+                : '-';
+            avgResponseTimeEl.textContent = display;
+            console.log(`✅ Avg Response Time: ${display}`);
+        } else {
+            console.error('❌ #avgResponseTime element not found');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error updating team metrics:', error);
+        showNotification('Failed to update dashboard display', 'error');
     }
+}
 
     checkPriorityAlerts(data) {
         const alertElement = document.getElementById('priorityAlert');

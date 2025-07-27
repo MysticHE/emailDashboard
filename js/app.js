@@ -171,38 +171,93 @@ class SupportPortalApp {
 
     async calculateTeamOverviewManually() {
     try {
+        console.log('🔄 Starting manual team overview calculation...');
+        
         const { data: cases, error } = await this.supabase
             .from('cases')
             .select('*');
             
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Supabase query error:', error);
+            throw error;
+        }
         
-        // Total cases and resolved
+        console.log(`📊 Retrieved ${cases ? cases.length : 0} cases from Supabase`);
+        
+        if (!cases || cases.length === 0) {
+            console.warn('⚠️ No cases found in database');
+            const emptyMetrics = {
+                total_cases: 0,
+                total_resolved: 0,
+                total_pending: 0,
+                pending_breakdown: {vip: 0, urgent: 0, normal: 0, low: 0},
+                team_avg_response_time: 0
+            };
+            this.updateTeamMetrics(emptyMetrics);
+            this.checkPriorityAlerts(emptyMetrics);
+            return;
+        }
+        
+        // Log sample case for debugging
+        console.log('📝 Sample case structure:', cases[0]);
+        
+        // FIXED: Total cases and resolved calculation
         const totalCases = cases.length;
+        const resolvedStatuses = ['resolved', 'closed'];
         const totalResolvedCases = cases.filter(c => 
-            ['resolved', 'closed'].includes(c.status)
+            c.status && resolvedStatuses.includes(c.status.toLowerCase())
         ).length;
         
-        // Pending cases breakdown by priority
+        console.log(`📈 Total cases: ${totalCases}`);
+        console.log(`✅ Resolved cases: ${totalResolvedCases}`);
+        
+        // FIXED: Pending cases calculation 
         const pendingCases = cases.filter(c => 
-            !['resolved', 'closed'].includes(c.status)
+            c.status && !resolvedStatuses.includes(c.status.toLowerCase())
         );
         
+        console.log(`⏳ Pending cases: ${pendingCases.length}`);
+        
+        // FIXED: Priority breakdown with better error handling
         const pendingBreakdown = {
-            vip: pendingCases.filter(c => c.priority === 'vip').length,
-            urgent: pendingCases.filter(c => c.priority === 'urgent').length,
-            normal: pendingCases.filter(c => c.priority === 'normal').length,
-            low: pendingCases.filter(c => c.priority === 'low').length
+            vip: 0,
+            urgent: 0,
+            normal: 0,
+            low: 0
         };
         
-        // Team average response time
-        const allResponseTimes = cases
-            .filter(c => c.response_time_minutes && c.response_time_minutes > 0)
-            .map(c => c.response_time_minutes);
+        pendingCases.forEach(c => {
+            if (c.priority) {
+                const priority = c.priority.toLowerCase();
+                if (pendingBreakdown.hasOwnProperty(priority)) {
+                    pendingBreakdown[priority]++;
+                } else {
+                    console.warn(`⚠️ Unknown priority found: ${c.priority}`);
+                }
+            } else {
+                console.warn('⚠️ Case without priority found:', c.id);
+            }
+        });
         
-        const teamAvgResponseTime = allResponseTimes.length > 0 
-            ? Math.round(allResponseTimes.reduce((sum, time) => sum + time, 0) / allResponseTimes.length)
-            : 0;
+        console.log('📊 Pending breakdown:', pendingBreakdown);
+        
+        // FIXED: Team average response time calculation
+        const casesWithResponseTime = cases.filter(c => 
+            c.response_time_minutes && 
+            typeof c.response_time_minutes === 'number' && 
+            c.response_time_minutes > 0
+        );
+        
+        let teamAvgResponseTime = 0;
+        if (casesWithResponseTime.length > 0) {
+            const totalResponseTime = casesWithResponseTime.reduce((sum, c) => 
+                sum + c.response_time_minutes, 0
+            );
+            teamAvgResponseTime = Math.round(totalResponseTime / casesWithResponseTime.length);
+        }
+        
+        console.log(`⏱️ Cases with response time: ${casesWithResponseTime.length}`);
+        console.log(`⏱️ Average response time: ${teamAvgResponseTime} minutes`);
         
         const metrics = {
             total_cases: totalCases,
@@ -212,11 +267,16 @@ class SupportPortalApp {
             team_avg_response_time: teamAvgResponseTime
         };
         
+        console.log('✅ Final metrics:', metrics);
+        
         this.updateTeamMetrics(metrics);
         this.checkPriorityAlerts(metrics);
         
     } catch (error) {
-        console.error('Error calculating team overview:', error);
+        console.error('❌ Error calculating team overview:', error);
+        showNotification('Failed to load dashboard metrics. Check console for details.', 'error');
+        
+        // Show error state in metrics
         this.updateTeamMetrics({
             total_cases: 0,
             total_resolved: 0,
@@ -239,88 +299,67 @@ class SupportPortalApp {
 }
 
     updateTeamMetrics(data) {
-    // Total Cases Resolved (ratio format)
-    document.getElementById('totalResolved').textContent = 
-        `${data.total_resolved || 0}/${data.total_cases || 0}`;
-    
-    // Pending Cases (count)
-    document.getElementById('pendingCases').textContent = data.total_pending || 0;
-    
-    // Pending Breakdown (priority breakdown)
-    const breakdown = data.pending_breakdown || {vip: 0, urgent: 0, normal: 0, low: 0};
-    const breakdownParts = [];
-    
-    if (breakdown.vip > 0) breakdownParts.push(`${breakdown.vip} vip`);
-    if (breakdown.urgent > 0) breakdownParts.push(`${breakdown.urgent} urgent`);  
-    if (breakdown.normal > 0) breakdownParts.push(`${breakdown.normal} normal`);
-    if (breakdown.low > 0) breakdownParts.push(`${breakdown.low} low`);
-    
-    const breakdownText = breakdownParts.length > 0 
-        ? breakdownParts.join(', ') 
-        : 'No pending cases';
-    
-    document.getElementById('pendingBreakdown').textContent = breakdownText;
-    
-    // Team Average Response Time
-    document.getElementById('avgResponseTime').textContent = 
-        data.team_avg_response_time ? `${data.team_avg_response_time}m` : '-';
-}
-
-    checkPriorityAlerts(data) {
-    const alertElement = document.getElementById('priorityAlert');
-    const textElement = document.getElementById('priorityAlertText');
-    
-    const breakdown = data.pending_breakdown || {vip: 0, urgent: 0, normal: 0, low: 0};
-    
-    if (breakdown.vip > 0 || breakdown.urgent > 0) {
-        let alertText = '';
-        if (breakdown.vip > 0) {
-            alertText += `${breakdown.vip} VIP case(s) pending. `;
-        }
-        if (breakdown.urgent > 0) {
-            alertText += `${breakdown.urgent} urgent case(s) requiring attention.`;
+    try {
+        console.log('🔄 Updating team metrics with data:', data);
+        
+        // FIXED: Total Cases Resolved (with error handling)
+        const totalResolvedEl = document.getElementById('totalResolved');
+        if (totalResolvedEl) {
+            const displayText = `${data.total_resolved || 0}/${data.total_cases || 0}`;
+            totalResolvedEl.textContent = displayText;
+            console.log(`✅ Updated totalResolved: ${displayText}`);
+        } else {
+            console.error('❌ Element #totalResolved not found');
         }
         
-        textElement.textContent = alertText;
-        alertElement.classList.remove('hidden');
-    } else {
-        alertElement.classList.add('hidden');
+        // FIXED: Pending Cases (with error handling)
+        const pendingCasesEl = document.getElementById('pendingCases');
+        if (pendingCasesEl) {
+            const pendingCount = data.total_pending || 0;
+            pendingCasesEl.textContent = pendingCount.toString();
+            console.log(`✅ Updated pendingCases: ${pendingCount}`);
+        } else {
+            console.error('❌ Element #pendingCases not found');
+        }
+        
+        // FIXED: Pending Breakdown (with better formatting)
+        const pendingBreakdownEl = document.getElementById('pendingBreakdown');
+        if (pendingBreakdownEl) {
+            const breakdown = data.pending_breakdown || {vip: 0, urgent: 0, normal: 0, low: 0};
+            const breakdownParts = [];
+            
+            if (breakdown.vip > 0) breakdownParts.push(`${breakdown.vip} vip`);
+            if (breakdown.urgent > 0) breakdownParts.push(`${breakdown.urgent} urgent`);  
+            if (breakdown.normal > 0) breakdownParts.push(`${breakdown.normal} normal`);
+            if (breakdown.low > 0) breakdownParts.push(`${breakdown.low} low`);
+            
+            const breakdownText = breakdownParts.length > 0 
+                ? breakdownParts.join(', ') 
+                : 'No pending cases';
+            
+            pendingBreakdownEl.textContent = breakdownText;
+            console.log(`✅ Updated pendingBreakdown: ${breakdownText}`);
+        } else {
+            console.error('❌ Element #pendingBreakdown not found');
+        }
+        
+        // FIXED: Team Average Response Time (with error handling)
+        const avgResponseTimeEl = document.getElementById('avgResponseTime');
+        if (avgResponseTimeEl) {
+            const displayText = data.team_avg_response_time && data.team_avg_response_time > 0
+                ? `${data.team_avg_response_time}m` 
+                : '-';
+            avgResponseTimeEl.textContent = displayText;
+            console.log(`✅ Updated avgResponseTime: ${displayText}`);
+        } else {
+            console.error('❌ Element #avgResponseTime not found');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error updating team metrics:', error);
+        showNotification('Failed to update dashboard display', 'error');
     }
 }
-
-    setupRealTimeUpdates() {
-        try {
-            // Subscribe to case updates
-            this.supabase
-                .channel('cases-changes')
-                .on('postgres_changes', { 
-                    event: '*', 
-                    schema: 'public', 
-                    table: 'cases' 
-                }, (payload) => {
-                    this.handleCaseUpdate(payload);
-                })
-                .subscribe();
-
-            // Subscribe to agent updates
-            this.supabase
-                .channel('agents-changes')
-                .on('postgres_changes', { 
-                    event: '*', 
-                    schema: 'public', 
-                    table: 'agents' 
-                }, (payload) => {
-                    this.handleAgentUpdate(payload);
-                })
-                .subscribe();
-
-            if (window.CONFIG.DEBUG_MODE === 'true') {
-                console.log('🔄 Real-time subscriptions established');
-            }
-        } catch (error) {
-            console.error('Error setting up real-time updates:', error);
-        }
-    }
 
     handleCaseUpdate(payload) {
         if (window.CONFIG.DEBUG_MODE === 'true') {

@@ -171,70 +171,57 @@ class SupportPortalApp {
 
     async calculateTeamOverviewManually() {
     try {
-        const today = new Date().toISOString().split('T')[0];
-        
         const { data: cases, error } = await this.supabase
             .from('cases')
             .select('*');
             
         if (error) throw error;
         
-        const metrics = {
-            // Cases created today
-            total_cases_today: cases.filter(c => 
-                c.created_at.startsWith(today)
-            ).length,
-            
-            // FIXED: Count both resolved AND closed cases for "resolved today"
-            total_resolved_today: cases.filter(c => {
-                // Check if case was resolved or closed today
-                const resolvedToday = c.status === 'resolved' && c.resolved_at && c.resolved_at.startsWith(today);
-                const closedToday = c.status === 'closed' && c.resolved_at && c.resolved_at.startsWith(today);
-                
-                return resolvedToday || closedToday;
-            }).length,
-            
-            // FIXED: Pending should exclude both resolved AND closed
-            total_pending: cases.filter(c => 
-    !['resolved', 'closed'].includes(c.status)
-).length,
-            
-            // FIXED: VIP pending should exclude resolved AND closed
-            vip_pending: cases.filter(c => 
-                c.priority === 'vip' && !['resolved', 'closed'].includes(c.status)
-            ).length,
-            
-            // FIXED: Urgent pending should exclude resolved AND closed  
-            urgent_pending: cases.filter(c => 
-                c.priority === 'urgent' && !['resolved', 'closed'].includes(c.status)
-            ).length,
-            
-            // Average response time for all cases (not just today)
-            team_avg_response_time: (() => {
-    const allResponseTimes = cases
-        .filter(c => c.response_time_minutes && c.response_time_minutes > 0)
-        .map(c => c.response_time_minutes);
-    
-    return allResponseTimes.length > 0 
-        ? Math.round(allResponseTimes.reduce((sum, time) => sum + time, 0) / allResponseTimes.length)
-        : 0;
-})()
+        // Total cases and resolved
+        const totalCases = cases.length;
+        const totalResolvedCases = cases.filter(c => 
+            ['resolved', 'closed'].includes(c.status)
+        ).length;
+        
+        // Pending cases breakdown by priority
+        const pendingCases = cases.filter(c => 
+            !['resolved', 'closed'].includes(c.status)
+        );
+        
+        const pendingBreakdown = {
+            vip: pendingCases.filter(c => c.priority === 'vip').length,
+            urgent: pendingCases.filter(c => c.priority === 'urgent').length,
+            normal: pendingCases.filter(c => c.priority === 'normal').length,
+            low: pendingCases.filter(c => c.priority === 'low').length
         };
         
-        console.log('📊 Team metrics calculated:', metrics);
+        // Team average response time
+        const allResponseTimes = cases
+            .filter(c => c.response_time_minutes && c.response_time_minutes > 0)
+            .map(c => c.response_time_minutes);
+        
+        const teamAvgResponseTime = allResponseTimes.length > 0 
+            ? Math.round(allResponseTimes.reduce((sum, time) => sum + time, 0) / allResponseTimes.length)
+            : 0;
+        
+        const metrics = {
+            total_cases: totalCases,
+            total_resolved: totalResolvedCases,
+            total_pending: pendingCases.length,
+            pending_breakdown: pendingBreakdown,
+            team_avg_response_time: teamAvgResponseTime
+        };
         
         this.updateTeamMetrics(metrics);
         this.checkPriorityAlerts(metrics);
         
     } catch (error) {
-        console.error('Error calculating team overview manually:', error);
-        // Set default values
+        console.error('Error calculating team overview:', error);
         this.updateTeamMetrics({
-            total_cases_today: 0,
-            total_resolved_today: 0,
+            total_cases: 0,
+            total_resolved: 0,
             total_pending: 0,
-            vip_pending: 0,
-            urgent_pending: 0,
+            pending_breakdown: {vip: 0, urgent: 0, normal: 0, low: 0},
             team_avg_response_time: 0
         });
     }
@@ -252,32 +239,54 @@ class SupportPortalApp {
 }
 
     updateTeamMetrics(data) {
-        document.getElementById('todayCases').textContent = data.total_cases_today || 0;
-        document.getElementById('resolvedToday').textContent = data.total_resolved_today || 0;
-        document.getElementById('pendingCases').textContent = data.total_pending || 0;
-        document.getElementById('avgResponseTime').textContent = 
-            data.team_avg_response_time ? `${Math.round(data.team_avg_response_time)}m` : '-';
-    }
+    // Total Cases Resolved (ratio format)
+    document.getElementById('totalResolved').textContent = 
+        `${data.total_resolved || 0}/${data.total_cases || 0}`;
+    
+    // Pending Cases (count)
+    document.getElementById('pendingCases').textContent = data.total_pending || 0;
+    
+    // Pending Breakdown (priority breakdown)
+    const breakdown = data.pending_breakdown || {vip: 0, urgent: 0, normal: 0, low: 0};
+    const breakdownParts = [];
+    
+    if (breakdown.vip > 0) breakdownParts.push(`${breakdown.vip} vip`);
+    if (breakdown.urgent > 0) breakdownParts.push(`${breakdown.urgent} urgent`);  
+    if (breakdown.normal > 0) breakdownParts.push(`${breakdown.normal} normal`);
+    if (breakdown.low > 0) breakdownParts.push(`${breakdown.low} low`);
+    
+    const breakdownText = breakdownParts.length > 0 
+        ? breakdownParts.join(', ') 
+        : 'No pending cases';
+    
+    document.getElementById('pendingBreakdown').textContent = breakdownText;
+    
+    // Team Average Response Time
+    document.getElementById('avgResponseTime').textContent = 
+        data.team_avg_response_time ? `${data.team_avg_response_time}m` : '-';
+}
 
     checkPriorityAlerts(data) {
-        const alertElement = document.getElementById('priorityAlert');
-        const textElement = document.getElementById('priorityAlertText');
-        
-        if (data.vip_pending > 0 || data.urgent_pending > 0) {
-            let alertText = '';
-            if (data.vip_pending > 0) {
-                alertText += `${data.vip_pending} VIP case(s) pending. `;
-            }
-            if (data.urgent_pending > 0) {
-                alertText += `${data.urgent_pending} urgent case(s) requiring attention.`;
-            }
-            
-            textElement.textContent = alertText;
-            alertElement.classList.remove('hidden');
-        } else {
-            alertElement.classList.add('hidden');
+    const alertElement = document.getElementById('priorityAlert');
+    const textElement = document.getElementById('priorityAlertText');
+    
+    const breakdown = data.pending_breakdown || {vip: 0, urgent: 0, normal: 0, low: 0};
+    
+    if (breakdown.vip > 0 || breakdown.urgent > 0) {
+        let alertText = '';
+        if (breakdown.vip > 0) {
+            alertText += `${breakdown.vip} VIP case(s) pending. `;
         }
+        if (breakdown.urgent > 0) {
+            alertText += `${breakdown.urgent} urgent case(s) requiring attention.`;
+        }
+        
+        textElement.textContent = alertText;
+        alertElement.classList.remove('hidden');
+    } else {
+        alertElement.classList.add('hidden');
     }
+}
 
     setupRealTimeUpdates() {
         try {

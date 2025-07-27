@@ -1,6 +1,7 @@
 /**
  * Employee Support Portal - Main Application
  * Initializes the application and manages global state
+ * FIXED VERSION - Resolves dashboard data loading issues
  */
 
 class SupportPortalApp {
@@ -170,196 +171,669 @@ class SupportPortalApp {
     }
 
     async calculateTeamOverviewManually() {
-    try {
-        console.log('🔄 Starting manual team overview calculation...');
-        
-        const { data: cases, error } = await this.supabase
-            .from('cases')
-            .select('*');
+        try {
+            console.log('🔄 Loading live dashboard data...');
             
-        if (error) {
-            console.error('❌ Supabase query error:', error);
-            throw error;
-        }
-        
-        console.log(`📊 Retrieved ${cases ? cases.length : 0} cases from Supabase`);
-        
-        if (!cases || cases.length === 0) {
-            console.warn('⚠️ No cases found in database');
-            const emptyMetrics = {
+            // Query with explicit field selection based on your schema
+            const { data: cases, error } = await this.supabase
+                .from('cases')
+                .select('id, case_number, status, priority, response_time_minutes, created_at, resolved_at, agent_id');
+                
+            if (error) {
+                console.error('❌ Supabase error:', error);
+                throw error;
+            }
+            
+            console.log(`📊 Retrieved ${cases ? cases.length : 0} cases from Supabase`);
+            
+            if (!cases || cases.length === 0) {
+                console.warn('⚠️ No cases found. Run comprehensive_test_data.sql to add test data.');
+                this.updateTeamMetrics({
+                    total_cases: 0,
+                    total_resolved: 0,
+                    total_pending: 0,
+                    pending_breakdown: {vip: 0, urgent: 0, normal: 0, low: 0},
+                    team_avg_response_time: 0
+                });
+                return;
+            }
+            
+            // Log actual data structure for debugging
+            console.log('📝 Sample case:', cases[0]);
+            
+            // Based on your actual status values from schema
+            const RESOLVED_STATUSES = ['resolved', 'closed'];
+            
+            // Calculate metrics using your actual data
+            const totalCases = cases.length;
+            const resolvedCases = cases.filter(c => 
+                c.status && RESOLVED_STATUSES.includes(c.status.toLowerCase().trim())
+            );
+            const totalResolved = resolvedCases.length;
+            
+            console.log(`📈 Total: ${totalCases}, Resolved: ${totalResolved}`);
+            
+            // Pending cases calculation
+            const pendingCases = cases.filter(c => 
+                c.status && !RESOLVED_STATUSES.includes(c.status.toLowerCase().trim())
+            );
+            
+            // Priority breakdown based on your actual priorities
+            const pendingBreakdown = {
+                vip: pendingCases.filter(c => c.priority && c.priority.toLowerCase().trim() === 'vip').length,
+                urgent: pendingCases.filter(c => c.priority && c.priority.toLowerCase().trim() === 'urgent').length,
+                normal: pendingCases.filter(c => c.priority && c.priority.toLowerCase().trim() === 'normal').length,
+                low: pendingCases.filter(c => c.priority && c.priority.toLowerCase().trim() === 'low').length
+            };
+            
+            console.log('📊 Pending breakdown:', pendingBreakdown);
+            
+            // Response time calculation
+            const validResponseTimes = cases
+                .filter(c => c.response_time_minutes && typeof c.response_time_minutes === 'number' && c.response_time_minutes > 0)
+                .map(c => c.response_time_minutes);
+            
+            let avgResponseTime = 0;
+            if (validResponseTimes.length > 0) {
+                avgResponseTime = Math.round(validResponseTimes.reduce((sum, time) => sum + time, 0) / validResponseTimes.length);
+            }
+            
+            console.log(`⏱️ Avg response time: ${avgResponseTime}m from ${validResponseTimes.length} cases`);
+            
+            const metrics = {
+                total_cases: totalCases,
+                total_resolved: totalResolved,
+                total_pending: pendingCases.length,
+                pending_breakdown: pendingBreakdown,
+                team_avg_response_time: avgResponseTime
+            };
+            
+            console.log('✅ Final metrics:', metrics);
+            this.updateTeamMetrics(metrics);
+            this.checkPriorityAlerts(metrics);
+            
+        } catch (error) {
+            console.error('❌ Dashboard calculation error:', error);
+            showNotification('Failed to load dashboard data. Check console for details.', 'error');
+            
+            // Show error state in metrics
+            this.updateTeamMetrics({
                 total_cases: 0,
                 total_resolved: 0,
                 total_pending: 0,
                 pending_breakdown: {vip: 0, urgent: 0, normal: 0, low: 0},
                 team_avg_response_time: 0
-            };
-            this.updateTeamMetrics(emptyMetrics);
-            this.checkPriorityAlerts(emptyMetrics);
-            return;
+            });
         }
-        
-        // Log sample case for debugging
-        console.log('📝 Sample case structure:', cases[0]);
-        
-        // FIXED: Total cases and resolved calculation
-        const totalCases = cases.length;
-        const resolvedStatuses = ['resolved', 'closed'];
-        const totalResolvedCases = cases.filter(c => 
-            c.status && resolvedStatuses.includes(c.status.toLowerCase())
-        ).length;
-        
-        console.log(`📈 Total cases: ${totalCases}`);
-        console.log(`✅ Resolved cases: ${totalResolvedCases}`);
-        
-        // FIXED: Pending cases calculation 
-        const pendingCases = cases.filter(c => 
-            c.status && !resolvedStatuses.includes(c.status.toLowerCase())
-        );
-        
-        console.log(`⏳ Pending cases: ${pendingCases.length}`);
-        
-        // FIXED: Priority breakdown with better error handling
-        const pendingBreakdown = {
-            vip: 0,
-            urgent: 0,
-            normal: 0,
-            low: 0
-        };
-        
-        pendingCases.forEach(c => {
-            if (c.priority) {
-                const priority = c.priority.toLowerCase();
-                if (pendingBreakdown.hasOwnProperty(priority)) {
-                    pendingBreakdown[priority]++;
-                } else {
-                    console.warn(`⚠️ Unknown priority found: ${c.priority}`);
-                }
-            } else {
-                console.warn('⚠️ Case without priority found:', c.id);
-            }
-        });
-        
-        console.log('📊 Pending breakdown:', pendingBreakdown);
-        
-        // FIXED: Team average response time calculation
-        const casesWithResponseTime = cases.filter(c => 
-            c.response_time_minutes && 
-            typeof c.response_time_minutes === 'number' && 
-            c.response_time_minutes > 0
-        );
-        
-        let teamAvgResponseTime = 0;
-        if (casesWithResponseTime.length > 0) {
-            const totalResponseTime = casesWithResponseTime.reduce((sum, c) => 
-                sum + c.response_time_minutes, 0
-            );
-            teamAvgResponseTime = Math.round(totalResponseTime / casesWithResponseTime.length);
-        }
-        
-        console.log(`⏱️ Cases with response time: ${casesWithResponseTime.length}`);
-        console.log(`⏱️ Average response time: ${teamAvgResponseTime} minutes`);
-        
-        const metrics = {
-            total_cases: totalCases,
-            total_resolved: totalResolvedCases,
-            total_pending: pendingCases.length,
-            pending_breakdown: pendingBreakdown,
-            team_avg_response_time: teamAvgResponseTime
-        };
-        
-        console.log('✅ Final metrics:', metrics);
-        
-        this.updateTeamMetrics(metrics);
-        this.checkPriorityAlerts(metrics);
-        
-    } catch (error) {
-        console.error('❌ Error calculating team overview:', error);
-        showNotification('Failed to load dashboard metrics. Check console for details.', 'error');
-        
-        // Show error state in metrics
-        this.updateTeamMetrics({
-            total_cases: 0,
-            total_resolved: 0,
-            total_pending: 0,
-            pending_breakdown: {vip: 0, urgent: 0, normal: 0, low: 0},
-            team_avg_response_time: 0
-        });
     }
-}
-
-    calculateAverageResponseTime(cases) {
-    const casesWithResponse = cases.filter(c => 
-        c.created_at && c.first_response_at && c.response_time_minutes && c.response_time_minutes > 0
-    );
-    
-    if (casesWithResponse.length === 0) return 0;
-    
-    const total = casesWithResponse.reduce((sum, c) => sum + c.response_time_minutes, 0);
-    return Math.round(total / casesWithResponse.length);
-}
 
     updateTeamMetrics(data) {
-    try {
-        console.log('🔄 Updating team metrics with data:', data);
+        console.log('🔄 Updating dashboard display with:', data);
         
-        // FIXED: Total Cases Resolved (with error handling)
-        const totalResolvedEl = document.getElementById('totalResolved');
-        if (totalResolvedEl) {
-            const displayText = `${data.total_resolved || 0}/${data.total_cases || 0}`;
-            totalResolvedEl.textContent = displayText;
-            console.log(`✅ Updated totalResolved: ${displayText}`);
-        } else {
-            console.error('❌ Element #totalResolved not found');
-        }
-        
-        // FIXED: Pending Cases (with error handling)
-        const pendingCasesEl = document.getElementById('pendingCases');
-        if (pendingCasesEl) {
-            const pendingCount = data.total_pending || 0;
-            pendingCasesEl.textContent = pendingCount.toString();
-            console.log(`✅ Updated pendingCases: ${pendingCount}`);
-        } else {
-            console.error('❌ Element #pendingCases not found');
-        }
-        
-        // FIXED: Pending Breakdown (with better formatting)
-        const pendingBreakdownEl = document.getElementById('pendingBreakdown');
-        if (pendingBreakdownEl) {
-            const breakdown = data.pending_breakdown || {vip: 0, urgent: 0, normal: 0, low: 0};
-            const breakdownParts = [];
+        try {
+            // Update Total Resolved display
+            const totalResolvedEl = document.getElementById('totalResolved');
+            if (totalResolvedEl) {
+                const display = `${data.total_resolved || 0}/${data.total_cases || 0}`;
+                totalResolvedEl.textContent = display;
+                console.log(`✅ Total Resolved: ${display}`);
+            } else {
+                console.error('❌ #totalResolved element not found');
+            }
             
-            if (breakdown.vip > 0) breakdownParts.push(`${breakdown.vip} vip`);
-            if (breakdown.urgent > 0) breakdownParts.push(`${breakdown.urgent} urgent`);  
-            if (breakdown.normal > 0) breakdownParts.push(`${breakdown.normal} normal`);
-            if (breakdown.low > 0) breakdownParts.push(`${breakdown.low} low`);
+            // Update Pending Cases count
+            const pendingCasesEl = document.getElementById('pendingCases');
+            if (pendingCasesEl) {
+                const count = (data.total_pending || 0).toString();
+                pendingCasesEl.textContent = count;
+                console.log(`✅ Pending Cases: ${count}`);
+            } else {
+                console.error('❌ #pendingCases element not found');
+            }
             
-            const breakdownText = breakdownParts.length > 0 
-                ? breakdownParts.join(', ') 
-                : 'No pending cases';
+            // Update Pending Breakdown text
+            const pendingBreakdownEl = document.getElementById('pendingBreakdown');
+            if (pendingBreakdownEl) {
+                const breakdown = data.pending_breakdown || {vip: 0, urgent: 0, normal: 0, low: 0};
+                const parts = [];
+                
+                if (breakdown.vip > 0) parts.push(`${breakdown.vip} vip`);
+                if (breakdown.urgent > 0) parts.push(`${breakdown.urgent} urgent`);
+                if (breakdown.normal > 0) parts.push(`${breakdown.normal} normal`);
+                if (breakdown.low > 0) parts.push(`${breakdown.low} low`);
+                
+                const text = parts.length > 0 ? parts.join(', ') : 'No pending cases';
+                pendingBreakdownEl.textContent = text;
+                console.log(`✅ Pending Breakdown: ${text}`);
+            } else {
+                console.error('❌ #pendingBreakdown element not found');
+            }
             
-            pendingBreakdownEl.textContent = breakdownText;
-            console.log(`✅ Updated pendingBreakdown: ${breakdownText}`);
-        } else {
-            console.error('❌ Element #pendingBreakdown not found');
+            // Update Average Response Time
+            const avgResponseTimeEl = document.getElementById('avgResponseTime');
+            if (avgResponseTimeEl) {
+                const display = data.team_avg_response_time && data.team_avg_response_time > 0 
+                    ? `${data.team_avg_response_time}m` 
+                    : '-';
+                avgResponseTimeEl.textContent = display;
+                console.log(`✅ Avg Response Time: ${display}`);
+            } else {
+                console.error('❌ #avgResponseTime element not found');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error updating team metrics:', error);
+            showNotification('Failed to update dashboard display', 'error');
         }
-        
-        // FIXED: Team Average Response Time (with error handling)
-        const avgResponseTimeEl = document.getElementById('avgResponseTime');
-        if (avgResponseTimeEl) {
-            const displayText = data.team_avg_response_time && data.team_avg_response_time > 0
-                ? `${data.team_avg_response_time}m` 
-                : '-';
-            avgResponseTimeEl.textContent = displayText;
-            console.log(`✅ Updated avgResponseTime: ${displayText}`);
-        } else {
-            console.error('❌ Element #avgResponseTime not found');
-        }
-        
-    } catch (error) {
-        console.error('❌ Error updating team metrics:', error);
-        showNotification('Failed to update dashboard display', 'error');
     }
-}
+
+    checkPriorityAlerts(data) {
+        const alertElement = document.getElementById('priorityAlert');
+        const textElement = document.getElementById('priorityAlertText');
+        
+        if (!alertElement || !textElement) return;
+        
+        const breakdown = data.pending_breakdown || {vip: 0, urgent: 0, normal: 0, low: 0};
+        
+        if (breakdown.vip > 0 || breakdown.urgent > 0) {
+            let alertText = '';
+            if (breakdown.vip > 0) {
+                alertText += `${breakdown.vip} VIP case(s) pending. `;
+            }
+            if (breakdown.urgent > 0) {
+                alertText += `${breakdown.urgent} urgent case(s) requiring attention.`;
+            }
+            
+            textElement.textContent = alertText;
+            alertElement.classList.remove('hidden');
+        } else {
+            alertElement.classList.add('hidden');
+        }
+    }
+
+    async loadAgentPerformance() {
+        try {
+            // SIMPLIFIED: Always use manual calculation (no view issues)
+            const agents = await this.calculateAgentPerformanceManually();
+            
+            const agentList = document.getElementById('agentList');
+            if (!agentList) return;
+            
+            agentList.innerHTML = '';
+            
+            if (!agents || agents.length === 0) {
+                agentList.innerHTML = '<p class="text-gray-500 text-center">No agents found</p>';
+                return;
+            }
+            
+            agents.forEach(agent => {
+                const agentCard = this.createAgentCard(agent);
+                agentList.appendChild(agentCard);
+            });
+            
+        } catch (error) {
+            console.error('Error loading agent performance:', error);
+            const agentList = document.getElementById('agentList');
+            if (agentList) {
+                agentList.innerHTML = '<p class="text-red-500 text-center">Error loading agent data</p>';
+            }
+        }
+    }
+
+    async calculateAgentPerformanceManually() {
+        try {
+            const { data: agents, error: agentsError } = await this.supabase
+                .from('agents')
+                .select('*');
+                
+            if (agentsError) throw agentsError;
+            
+            const { data: cases, error: casesError } = await this.supabase
+                .from('cases')
+                .select('*');
+                
+            if (casesError) throw casesError;
+            
+            const today = new Date().toISOString().split('T')[0];
+            
+            return agents.map(agent => {
+                const agentCases = cases.filter(c => c.agent_id === agent.id);
+                
+                // Today's resolved (keep this)
+                const todayResolved = agentCases.filter(c => {
+                    const resolvedToday = (c.status === 'resolved' || c.status === 'closed') && 
+                                        c.resolved_at && c.resolved_at.startsWith(today);
+                    return resolvedToday;
+                });
+                
+                // Add these calculations
+                const totalResolvedCases = agentCases.filter(c => 
+                    ['resolved', 'closed'].includes(c.status)
+                );
+                
+                const totalCases = agentCases.length;
+                
+                // Keep these
+                const pendingCases = agentCases.filter(c => 
+                    !['resolved', 'closed'].includes(c.status)
+                );
+                
+                const unattendedCases = agentCases.filter(c => 
+                    c.status === 'new' && 
+                    new Date(c.created_at) > new Date(Date.now() - 2 * 60 * 60 * 1000)
+                );
+                
+                // Use all-time response time average
+                const allResponseTimes = agentCases
+                    .filter(c => c.response_time_minutes && c.response_time_minutes > 0)
+                    .map(c => c.response_time_minutes);
+                
+                const avgResponseTime = allResponseTimes.length > 0 
+                    ? allResponseTimes.reduce((sum, time) => sum + time, 0) / allResponseTimes.length
+                    : null;
+                
+                return {
+                    ...agent,
+                    resolved_today: todayResolved.length,
+                    total_resolved: totalResolvedCases.length,
+                    total_cases: totalCases,
+                    pending_cases: pendingCases.length,
+                    unattended_emails: unattendedCases.length,
+                    avg_response_time: avgResponseTime
+                };
+            });
+            
+        } catch (error) {
+            console.error('Error calculating agent performance manually:', error);
+            return [];
+        }
+    }
+
+    createAgentCard(agent) {
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors';
+        
+        const statusColors = {
+            'available': 'text-green-600 bg-green-100',
+            'busy': 'text-yellow-600 bg-yellow-100',
+            'break': 'text-orange-600 bg-orange-100',
+            'offline': 'text-gray-600 bg-gray-100'
+        };
+        
+        const statusColor = statusColors[agent.status] || statusColors['offline'];
+        const efficiency = this.calculateAgentEfficiency(agent);
+        
+        div.innerHTML = `
+        <div class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+            <div class="flex items-center">
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mr-3">
+                    <span class="text-white font-semibold text-sm">${agent.name.charAt(0).toUpperCase()}</span>
+                </div>
+                <div>
+                    <p class="font-medium text-gray-900">${agent.name}</p>
+                    <div class="flex items-center space-x-2">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColor}">
+                            ${agent.status}
+                        </span>
+                        ${efficiency.class ? `
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${efficiency.class}">
+                                ${efficiency.label}
+                            </span>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+            <div class="text-right">
+                <div class="flex flex-col space-y-1">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-gray-500 mr-2">Resolved:</span>
+                        <span class="text-sm font-medium">${agent.total_resolved || 0}/${agent.total_cases || 0}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-gray-500 mr-2">Pending:</span>
+                        <span class="text-sm font-medium">${agent.pending_cases || 0}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-gray-500 mr-2">Avg Response Time:</span>
+                        <span class="text-sm font-medium">${
+                            agent.avg_response_time 
+                                ? Math.round(agent.avg_response_time) + 'm' 
+                                : '-'
+                        }</span>
+                    </div>
+                    ${agent.unattended_emails > 0 ? `
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-red-500 mr-2">Unattended:</span>
+                            <span class="text-sm font-medium text-red-600">${agent.unattended_emails}</span>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        </div>`;
+        
+        return div;
+    }
+
+    calculateAgentEfficiency(agent) {
+        if (agent.status === 'offline') {
+            return { label: '', class: '' };
+        }
+        
+        const resolvedToday = agent.resolved_today || 0;
+        const avgResponseTime = agent.avg_response_time || 0;
+        const pendingCases = agent.pending_cases || 0;
+        
+        // Simple efficiency calculation
+        if (resolvedToday >= 5 && avgResponseTime <= 60 && pendingCases <= 3) {
+            return { label: 'High Performer', class: 'text-green-600 bg-green-100' };
+        } else if (resolvedToday >= 3 || (avgResponseTime <= 120 && pendingCases <= 5)) {
+            return { label: 'Good', class: 'text-blue-600 bg-blue-100' };
+        } else if (pendingCases > 8 || avgResponseTime > 180) {
+            return { label: 'Needs Support', class: 'text-red-600 bg-red-100' };
+        }
+        
+        return { label: '', class: '' };
+    }
+
+    async loadRecentCases() {
+        try {
+            const { data: cases, error } = await this.supabase
+                .from('cases')
+                .select(`
+                    *,
+                    agents(name),
+                    email_threads(subject)
+                `)
+                .order('created_at', { ascending: false })
+                .limit(10);
+            
+            if (error) throw error;
+            
+            const tbody = document.getElementById('recentCasesBody');
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            
+            if (!cases || cases.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                            No cases found. Cases will appear here when emails are processed by the n8n workflow.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            cases.forEach(case_item => {
+                const row = this.createCaseRow(case_item);
+                tbody.appendChild(row);
+            });
+            
+        } catch (error) {
+            console.error('Error loading recent cases:', error);
+            const tbody = document.getElementById('recentCasesBody');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-4 text-center text-red-500">
+                            Error loading cases. Please check your database connection.
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+    }
+
+    createCaseRow(case_item) {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 cursor-pointer transition-colors';
+        tr.onclick = () => {
+            if (typeof openCaseModal === 'function') {
+                openCaseModal(case_item.id);
+            }
+        };
+        
+        const priorityConfig = {
+            'vip': { bg: 'bg-purple-100', text: 'text-purple-800', icon: '👑' },
+            'urgent': { bg: 'bg-red-100', text: 'text-red-800', icon: '🚨' },
+            'normal': { bg: 'bg-blue-100', text: 'text-blue-800', icon: '📧' },
+            'low': { bg: 'bg-gray-100', text: 'text-gray-800', icon: '📝' }
+        };
+        
+        const statusConfig = {
+            'new': { bg: 'bg-green-100', text: 'text-green-800', icon: '🆕' },
+            'assigned': { bg: 'bg-blue-100', text: 'text-blue-800', icon: '👤' },
+            'in_progress': { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: '⚡' },
+            'pending_customer': { bg: 'bg-orange-100', text: 'text-orange-800', icon: '⏳' },
+            'resolved': { bg: 'bg-gray-100', text: 'text-gray-800', icon: '✅' },
+            'closed': { bg: 'bg-gray-100', text: 'text-gray-600', icon: '🔒' }
+        };
+        
+        const priority = priorityConfig[case_item.priority] || priorityConfig['normal'];
+        const status = statusConfig[case_item.status] || statusConfig['new'];
+        
+        const tat = calculateTAT(case_item.created_at, case_item.resolved_at);
+        const isOverdue = this.isCaseOverdue(case_item);
+        
+        tr.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                    <span class="text-sm font-medium text-gray-900">${case_item.case_number}</span>
+                    ${isOverdue ? '<span class="ml-2 text-red-500">⚠️</span>' : ''}
+                </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${priority.bg} ${priority.text}">
+                    ${priority.icon} ${case_item.priority}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                ${case_item.agents?.name || 'Unassigned'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.bg} ${status.text}">
+                    ${status.icon} ${case_item.status.replace('_', ' ')}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-500'}">
+                ${tat}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <button class="text-blue-600 hover:text-blue-900 transition-colors" onclick="event.stopPropagation(); ${typeof openCaseModal === 'function' ? `openCaseModal('${case_item.id}')` : 'console.log(\'openCaseModal not found\')'}"">
+                    <i class="fas fa-eye mr-1"></i>View
+                </button>
+            </td>
+        `;
+        
+        return tr;
+    }
+
+    isCaseOverdue(case_item) {
+        if (case_item.status === 'resolved' || case_item.status === 'closed') {
+            return false;
+        }
+        
+        const created = new Date(case_item.created_at);
+        const now = new Date();
+        const hoursOpen = (now - created) / (1000 * 60 * 60);
+        
+        // Define SLA based on priority
+        const slaHours = {
+            'vip': 4,
+            'urgent': 8, 
+            'normal': 24,
+            'low': 48
+        };
+        
+        const maxHours = slaHours[case_item.priority] || 24;
+        return hoursOpen > maxHours;
+    }
+
+    async updateDashboardCharts() {
+        try {
+            await this.createCasesTimelineChart();
+        } catch (error) {
+            console.error('Error updating dashboard charts:', error);
+        }
+    }
+
+    async createCasesTimelineChart() {
+        try {
+            // Get last 7 days of case data
+            const endDate = new Date();
+            const startDate = new Date(endDate);
+            startDate.setDate(startDate.getDate() - 6);
+            
+            const { data: cases, error } = await this.supabase
+                .from('cases')
+                .select('created_at, resolved_at, status')
+                .gte('created_at', startDate.toISOString())
+                .order('created_at', { ascending: true });
+                
+            if (error) throw error;
+            
+            // Process data for chart
+            const days = [];
+            const createdData = [];
+            const resolvedData = [];
+            
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(startDate);
+                date.setDate(date.getDate() + i);
+                const dateStr = date.toISOString().split('T')[0];
+                
+                days.push(date.toLocaleDateString('en-US', { weekday: 'short' }));
+                
+                const created = cases.filter(c => c.created_at.startsWith(dateStr)).length;
+                const resolved = cases.filter(c => 
+                    c.resolved_at && c.resolved_at.startsWith(dateStr)
+                ).length;
+                
+                createdData.push(created);
+                resolvedData.push(resolved);
+            }
+            
+            // Create chart
+            const chartElement = document.getElementById('casesChart');
+            if (!chartElement) return;
+            
+            const ctx = chartElement.getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (this.charts.casesTimeline) {
+                this.charts.casesTimeline.destroy();
+            }
+            
+            this.charts.casesTimeline = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: days,
+                    datasets: [{
+                        label: 'Cases Created',
+                        data: createdData,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.1,
+                        fill: true
+                    }, {
+                        label: 'Cases Resolved',
+                        data: resolvedData,
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            titleFont: {
+                                size: 14
+                            },
+                            bodyFont: {
+                                size: 13
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error creating cases timeline chart:', error);
+            
+            // Show placeholder if chart fails
+            const chartElement = document.getElementById('casesChart');
+            if (chartElement) {
+                const ctx = chartElement.getContext('2d');
+                ctx.fillStyle = '#f3f4f6';
+                ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                ctx.fillStyle = '#6b7280';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Chart data loading...', ctx.canvas.width / 2, ctx.canvas.height / 2);
+            }
+        }
+    }
+
+    setupRealTimeUpdates() {
+        try {
+            // Subscribe to case updates
+            this.supabase
+                .channel('cases-changes')
+                .on('postgres_changes', { 
+                    event: '*', 
+                    schema: 'public', 
+                    table: 'cases' 
+                }, (payload) => {
+                    this.handleCaseUpdate(payload);
+                })
+                .subscribe();
+
+            // Subscribe to agent updates
+            this.supabase
+                .channel('agents-changes')
+                .on('postgres_changes', { 
+                    event: '*', 
+                    schema: 'public', 
+                    table: 'agents' 
+                }, (payload) => {
+                    this.handleAgentUpdate(payload);
+                })
+                .subscribe();
+
+            if (window.CONFIG.DEBUG_MODE === 'true') {
+                console.log('🔄 Real-time subscriptions established');
+            }
+        } catch (error) {
+            console.error('Error setting up real-time updates:', error);
+        }
+    }
 
     handleCaseUpdate(payload) {
         if (window.CONFIG.DEBUG_MODE === 'true') {
@@ -457,6 +931,78 @@ class SupportPortalApp {
                 }
             }, 300);
         }, 3000);
+    }
+
+    // ADD this new debugging method to your SupportPortalApp class
+    async debugDashboardData() {
+        console.log('🔍 === DASHBOARD DEBUG SESSION ===');
+        
+        try {
+            // Test Supabase connection
+            console.log('🔗 Testing Supabase connection...');
+            const { data: testQuery, error: testError } = await this.supabase
+                .from('cases')
+                .select('count')
+                .limit(1);
+            
+            if (testError) {
+                console.error('❌ Supabase connection failed:', testError);
+                return;
+            }
+            
+            console.log('✅ Supabase connection successful');
+            
+            // Get detailed case data
+            const { data: cases, error } = await this.supabase
+                .from('cases')
+                .select('id, status, priority, response_time_minutes, created_at, resolved_at');
+                
+            if (error) {
+                console.error('❌ Failed to fetch cases:', error);
+                return;
+            }
+            
+            console.log(`📊 Found ${cases.length} cases in database`);
+            
+            if (cases.length > 0) {
+                // Status analysis
+                const statusCounts = {};
+                cases.forEach(c => {
+                    statusCounts[c.status] = (statusCounts[c.status] || 0) + 1;
+                });
+                console.log('📈 Status breakdown:', statusCounts);
+                
+                // Priority analysis
+                const priorityCounts = {};
+                cases.forEach(c => {
+                    priorityCounts[c.priority] = (priorityCounts[c.priority] || 0) + 1;
+                });
+                console.log('⚡ Priority breakdown:', priorityCounts);
+                
+                // Response time analysis
+                const withResponseTime = cases.filter(c => c.response_time_minutes);
+                console.log(`⏱️ Cases with response time: ${withResponseTime.length}/${cases.length}`);
+                
+                if (withResponseTime.length > 0) {
+                    const responseTimes = withResponseTime.map(c => c.response_time_minutes);
+                    const avgTime = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
+                    console.log(`⏱️ Average response time: ${Math.round(avgTime)} minutes`);
+                }
+            }
+            
+            // Test DOM elements
+            console.log('🎯 Testing DOM elements...');
+            const elements = ['totalResolved', 'pendingCases', 'pendingBreakdown', 'avgResponseTime'];
+            elements.forEach(id => {
+                const el = document.getElementById(id);
+                console.log(`${el ? '✅' : '❌'} Element #${id}: ${el ? 'found' : 'NOT FOUND'}`);
+            });
+            
+        } catch (error) {
+            console.error('❌ Debug session failed:', error);
+        }
+        
+        console.log('🔍 === DEBUG SESSION COMPLETE ===');
     }
 
     // Cleanup method

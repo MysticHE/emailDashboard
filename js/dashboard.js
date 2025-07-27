@@ -112,8 +112,8 @@ SupportPortalApp.prototype.createAgentCard = function(agent) {
     const statusColor = statusColors[agent.status] || statusColors['offline'];
     const efficiency = this.calculateAgentEfficiency(agent);
     
+    // FIXED: Removed the duplicate wrapper div and styling classes
     div.innerHTML = `
-    <div class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
         <div class="flex items-center">
             <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mr-3">
                 <span class="text-white font-semibold text-sm">${agent.name.charAt(0).toUpperCase()}</span>
@@ -158,8 +158,7 @@ SupportPortalApp.prototype.createAgentCard = function(agent) {
                 ` : ''}
             </div>
         </div>
-    </div>
-`;
+    `;
     
     return div;
 };

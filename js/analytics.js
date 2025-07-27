@@ -692,7 +692,7 @@ function createAgentDetailCard(agent, cases) {
 
     // Calculate metrics
     const totalCases = cases.length;
-    const resolvedCases = cases.filter(c => c.status === 'resolved').length;
+    const resolvedCases = cases.filter(c => ['resolved', 'closed'].includes(c.status)).length;
     const pendingCases = cases.filter(c => !['resolved', 'closed'].includes(c.status)).length;
     
     const today = new Date().toISOString().split('T')[0];

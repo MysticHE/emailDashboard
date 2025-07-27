@@ -196,8 +196,8 @@ class SupportPortalApp {
             
             // FIXED: Pending should exclude both resolved AND closed
             total_pending: cases.filter(c => 
-                ['new', 'assigned', 'in_progress', 'pending_customer'].includes(c.status)
-            ).length,
+    !['resolved', 'closed'].includes(c.status)
+).length,
             
             // FIXED: VIP pending should exclude resolved AND closed
             vip_pending: cases.filter(c => 
